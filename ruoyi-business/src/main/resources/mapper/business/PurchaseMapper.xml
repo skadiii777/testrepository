@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.PurchaseMapper">
+    
+    <resultMap type="Purchase" id="PurchaseResult">
+        <id     property="id"           column="purchase_id"       />
+        <result property="purchaseCode"    column="purchase_code"    />
+        <result property="supplierName"    column="supplier_name"    />
+        <result property="productName"    column="product_name"    />
+        <result property="quantity"    column="quantity"    />
+        <result property="price"    column="price"    />
+        <result property="totalAmount"    column="total_amount"    />
+        <result property="purchaseDate"    column="purchase_date"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectPurchaseVo">
+        select purchase_id,purchase_code, supplier_name, product_name, quantity, price, total_amount, purchase_date, status, create_by, create_time, update_by, update_time, remark from biz_purchase
+    </sql>
+
+    <select id="selectPurchaseList" parameterType="Purchase" resultMap="PurchaseResult">
+        <include refid="selectPurchaseVo"/>
+        <where>  
+            <if test="purchaseCode != null  and purchaseCode != ''">
+                and purchase_code like concat('%', #{purchaseCode}, '%')
+            </if>
+            <if test="supplierName != null  and supplierName != ''">
+                and supplier_name like concat('%', #{supplierName}, '%')
+            </if>
+            <if test="productName != null  and productName != ''">
+                and product_name like concat('%', #{productName}, '%')
+            </if>
+            <if test="purchaseDate != null  and purchaseDate != ''">
+                and purchase_date like concat('%', #{purchaseDate}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by purchase_id desc
+    </select>
+    
+    <select id="selectPurchaseById" parameterType="Long" resultMap="PurchaseResult">
+        <include refid="selectPurchaseVo"/>
+        where purchase_id = #{id}
+    </select>
+        
+    <insert id="insertPurchase" parameterType="Purchase" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_purchase(
+            <if test="purchaseCode != null and purchaseCode != ''">purchase_code,</if>
+            <if test="supplierName != null and supplierName != ''">supplier_name,</if>
+            <if test="productName != null and productName != ''">product_name,</if>
+            <if test="quantity != null and quantity != ''">quantity,</if>
+            <if test="price != null and price != ''">price,</if>
+            <if test="totalAmount != null and totalAmount != ''">total_amount,</if>
+            <if test="purchaseDate != null and purchaseDate != ''">purchase_date,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="purchaseCode != null and purchaseCode != ''">#{purchaseCode},</if>
+            <if test="supplierName != null and supplierName != ''">#{supplierName},</if>
+            <if test="productName != null and productName != ''">#{productName},</if>
+            <if test="quantity != null and quantity != ''">#{quantity},</if>
+            <if test="price != null and price != ''">#{price},</if>
+            <if test="totalAmount != null and totalAmount != ''">#{totalAmount},</if>
+            <if test="purchaseDate != null and purchaseDate != ''">#{purchaseDate},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updatePurchase" parameterType="Purchase">
+        update biz_purchase
+        <set>
+            <if test="purchaseCode != null and purchaseCode != ''">purchase_code = #{purchaseCode},</if>
+            <if test="supplierName != null and supplierName != ''">supplier_name = #{supplierName},</if>
+            <if test="productName != null and productName != ''">product_name = #{productName},</if>
+            <if test="quantity != null and quantity != ''">quantity = #{quantity},</if>
+            <if test="price != null and price != ''">price = #{price},</if>
+            <if test="totalAmount != null and totalAmount != ''">total_amount = #{totalAmount},</if>
+            <if test="purchaseDate != null and purchaseDate != ''">purchase_date = #{purchaseDate},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where purchase_id = #{id}
+    </update>
+
+    <delete id="deletePurchaseByIds" parameterType="String">
+        delete from biz_purchase where purchase_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

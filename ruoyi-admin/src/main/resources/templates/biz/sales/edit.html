@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('edit销售单')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-sales-edit">
+            <input type="hidden" name="id" th:value="${sales.id}">
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">销售单号：</label>
+                <div class="col-sm-8">
+                    <input name="salesCode" class="form-control" type="text" th:value="sales.salesCode">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">客户：</label>
+                <div class="col-sm-8">
+                    <input name="customerName" class="form-control" type="text" th:value="sales.customerName">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">产品名称：</label>
+                <div class="col-sm-8">
+                    <input name="productName" class="form-control" type="text" th:value="sales.productName">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">销售数量：</label>
+                <div class="col-sm-8">
+                    <input name="quantity" class="form-control" type="text" th:value="sales.quantity">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">销售单价：</label>
+                <div class="col-sm-8">
+                    <input name="price" class="form-control" type="text" th:value="sales.price">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">总金额：</label>
+                <div class="col-sm-8">
+                    <input name="totalAmount" class="form-control" type="text" th:value="sales.totalAmount">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">销售日期：</label>
+                <div class="col-sm-8">
+                    <input name="salesDate" class="form-control" type="text" th:value="sales.salesDate">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">出库状态：</label>
+                <div class="col-sm-8">
+                    <select name="status" class="form-control m-b" th:with="type=${@dict.getType('biz_inout_status')}">
+                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="${sales.status}"></option>
+                </select>
+                </div>
+            </div>
+
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script type="text/javascript">
+        var prefix = ctx + "biz/sales";
+
+        $("#form-sales-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-sales-edit').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

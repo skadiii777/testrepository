@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('edit采购单')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-purchase-edit">
+            <input type="hidden" name="id" th:value="${purchase.id}">
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">采购单号：</label>
+                <div class="col-sm-8">
+                    <input name="purchaseCode" class="form-control" type="text" th:value="purchase.purchaseCode">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">供应商：</label>
+                <div class="col-sm-8">
+                    <input name="supplierName" class="form-control" type="text" th:value="purchase.supplierName">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">产品名称：</label>
+                <div class="col-sm-8">
+                    <input name="productName" class="form-control" type="text" th:value="purchase.productName">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">采购数量：</label>
+                <div class="col-sm-8">
+                    <input name="quantity" class="form-control" type="text" th:value="purchase.quantity">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">采购单价：</label>
+                <div class="col-sm-8">
+                    <input name="price" class="form-control" type="text" th:value="purchase.price">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">总金额：</label>
+                <div class="col-sm-8">
+                    <input name="totalAmount" class="form-control" type="text" th:value="purchase.totalAmount">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">采购日期：</label>
+                <div class="col-sm-8">
+                    <input name="purchaseDate" class="form-control" type="text" th:value="purchase.purchaseDate">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">入库状态：</label>
+                <div class="col-sm-8">
+                    <select name="status" class="form-control m-b" th:with="type=${@dict.getType('biz_inout_status')}">
+                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}" th:field="${purchase.status}"></option>
+                </select>
+                </div>
+            </div>
+
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script type="text/javascript">
+        var prefix = ctx + "biz/purchase";
+
+        $("#form-purchase-edit").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/edit", $('#form-purchase-edit').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

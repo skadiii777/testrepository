@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.EmployeeMapper">
+    
+    <resultMap type="Employee" id="EmployeeResult">
+        <id     property="id"           column="employee_id"       />
+        <result property="empNo"    column="emp_no"    />
+        <result property="empName"    column="emp_name"    />
+        <result property="deptName"    column="dept_name"    />
+        <result property="postName"    column="post_name"    />
+        <result property="phone"    column="phone"    />
+        <result property="email"    column="email"    />
+        <result property="entryDate"    column="entry_date"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectEmployeeVo">
+        select employee_id,emp_no, emp_name, dept_name, post_name, phone, email, entry_date, status, create_by, create_time, update_by, update_time, remark from biz_employee
+    </sql>
+
+    <select id="selectEmployeeList" parameterType="Employee" resultMap="EmployeeResult">
+        <include refid="selectEmployeeVo"/>
+        <where>  
+            <if test="empNo != null  and empNo != ''">
+                and emp_no like concat('%', #{empNo}, '%')
+            </if>
+            <if test="empName != null  and empName != ''">
+                and emp_name like concat('%', #{empName}, '%')
+            </if>
+            <if test="deptName != null  and deptName != ''">
+                and dept_name like concat('%', #{deptName}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by employee_id desc
+    </select>
+    
+    <select id="selectEmployeeById" parameterType="Long" resultMap="EmployeeResult">
+        <include refid="selectEmployeeVo"/>
+        where employee_id = #{id}
+    </select>
+        
+    <insert id="insertEmployee" parameterType="Employee" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_employee(
+            <if test="empNo != null and empNo != ''">emp_no,</if>
+            <if test="empName != null and empName != ''">emp_name,</if>
+            <if test="deptName != null and deptName != ''">dept_name,</if>
+            <if test="postName != null and postName != ''">post_name,</if>
+            <if test="phone != null and phone != ''">phone,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="entryDate != null and entryDate != ''">entry_date,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="empNo != null and empNo != ''">#{empNo},</if>
+            <if test="empName != null and empName != ''">#{empName},</if>
+            <if test="deptName != null and deptName != ''">#{deptName},</if>
+            <if test="postName != null and postName != ''">#{postName},</if>
+            <if test="phone != null and phone != ''">#{phone},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="entryDate != null and entryDate != ''">#{entryDate},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateEmployee" parameterType="Employee">
+        update biz_employee
+        <set>
+            <if test="empNo != null and empNo != ''">emp_no = #{empNo},</if>
+            <if test="empName != null and empName != ''">emp_name = #{empName},</if>
+            <if test="deptName != null and deptName != ''">dept_name = #{deptName},</if>
+            <if test="postName != null and postName != ''">post_name = #{postName},</if>
+            <if test="phone != null and phone != ''">phone = #{phone},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="entryDate != null and entryDate != ''">entry_date = #{entryDate},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where employee_id = #{id}
+    </update>
+
+    <delete id="deleteEmployeeByIds" parameterType="String">
+        delete from biz_employee where employee_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

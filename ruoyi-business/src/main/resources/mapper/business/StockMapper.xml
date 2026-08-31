@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.StockMapper">
+    
+    <resultMap type="Stock" id="StockResult">
+        <id     property="id"           column="stock_id"       />
+        <result property="productName"    column="product_name"    />
+        <result property="warehouse"    column="warehouse"    />
+        <result property="quantity"    column="quantity"    />
+        <result property="minQuantity"    column="min_quantity"    />
+    </resultMap>
+
+    <sql id="selectStockVo">
+        select stock_id,product_name, warehouse, quantity, min_quantity, create_by, create_time, update_by, update_time, remark from biz_stock
+    </sql>
+
+    <select id="selectStockList" parameterType="Stock" resultMap="StockResult">
+        <include refid="selectStockVo"/>
+        <where>  
+            <if test="productName != null  and productName != ''">
+                and product_name like concat('%', #{productName}, '%')
+            </if>
+            <if test="warehouse != null  and warehouse != ''">
+                and warehouse like concat('%', #{warehouse}, '%')
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by stock_id desc
+    </select>
+    
+    <select id="selectStockByProductAndWarehouse" parameterType="Stock" resultMap="StockResult">
+        <include refid="selectStockVo"/>
+        where product_name = #{productName} and warehouse = #{warehouse} limit 1
+    </select>
+
+    <select id="selectStockById" parameterType="Long" resultMap="StockResult">
+        <include refid="selectStockVo"/>
+        where stock_id = #{id}
+    </select>
+        
+    <insert id="insertStock" parameterType="Stock" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_stock(
+            <if test="productName != null and productName != ''">product_name,</if>
+            <if test="warehouse != null and warehouse != ''">warehouse,</if>
+            <if test="quantity != null and quantity != ''">quantity,</if>
+            <if test="minQuantity != null and minQuantity != ''">min_quantity,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="productName != null and productName != ''">#{productName},</if>
+            <if test="warehouse != null and warehouse != ''">#{warehouse},</if>
+            <if test="quantity != null and quantity != ''">#{quantity},</if>
+            <if test="minQuantity != null and minQuantity != ''">#{minQuantity},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateStock" parameterType="Stock">
+        update biz_stock
+        <set>
+            <if test="productName != null and productName != ''">product_name = #{productName},</if>
+            <if test="warehouse != null and warehouse != ''">warehouse = #{warehouse},</if>
+            <if test="quantity != null and quantity != ''">quantity = #{quantity},</if>
+            <if test="minQuantity != null and minQuantity != ''">min_quantity = #{minQuantity},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where stock_id = #{id}
+    </update>
+
+    <delete id="deleteStockByIds" parameterType="String">
+        delete from biz_stock where stock_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

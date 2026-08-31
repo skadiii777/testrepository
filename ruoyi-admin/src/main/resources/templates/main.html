@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--360浏览器优先以webkit内核解析-->
+    <title>系统首页</title>
+    <link rel="shortcut icon" href="favicon.ico">
+    <link href="../static/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
+    <link href="../static/css/font-awesome.min.css" th:href="@{/css/font-awesome.min.css}" rel="stylesheet"/>
+    <link href="../static/css/style.min.css" th:href="@{/css/style.min.css}" rel="stylesheet"/>
+</head>
+
+<body class="gray-bg">
+    <div class="row border-bottom white-bg dashboard-header">
+        <div class="col-sm-12">
+            <h2>欢迎使用企业管理系统</h2>
+            <p>面向企业的综合管理平台，覆盖<b>客户合同产品</b>、<b>进销存</b>与<b>人事考勤</b>三大业务域，账号与权限由系统管理统一维护。</p>
+        </div>
+    </div>
+
+    <div class="wrapper wrapper-content">
+        <div class="row">
+            <div class="col-sm-4">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>客户 · 合同 · 产品</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <p><i class="fa fa-users text-navy"></i> 客户档案：<span id="stat-customer">--</span> 条</p>
+                        <p><i class="fa fa-file-text-o text-navy"></i> 产品台账：<span id="stat-product">--</span> 条</p>
+                        <p><i class="fa fa-handshake-o text-navy"></i> 合同记录：<span id="stat-contract">--</span> 条</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>进销存</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <p><i class="fa fa-truck text-navy"></i> 采购单：<span id="stat-purchase">--</span> 条</p>
+                        <p><i class="fa fa-shopping-cart text-navy"></i> 销售单：<span id="stat-sales">--</span> 条</p>
+                        <p><i class="fa fa-cubes text-navy"></i> 库存记录：<span id="stat-stock">--</span> 条</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>人事 · 考勤</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <p><i class="fa fa-id-card-o text-navy"></i> 员工档案：<span id="stat-employee">--</span> 条</p>
+                        <p><i class="fa fa-calendar-check-o text-navy"></i> 考勤记录：<span id="stat-attendance">--</span> 条</p>
+                        <p><i class="fa fa-envelope-o text-navy"></i> 待审批请假：<span id="stat-leave">--</span> 条</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/jquery.min.js" th:src="@{/js/jquery.min.js}"></script>
+    <script src="../static/js/bootstrap.min.js" th:src="@{/js/bootstrap.min.js}"></script>
+    <script th:inline="javascript">
+        var ctx = [[@{/}]];
+
+        function loadStat(url, data, targetId) {
+            $.ajax({
+                url: ctx + url,
+                type: "post",
+                data: data,
+                success: function (result) {
+                    $("#" + targetId).text(result.total != undefined ? result.total : "--");
+                }
+            });
+        }
+
+        $(function () {
+            loadStat("biz/customer/list", {pageNum: 1, pageSize: 1}, "stat-customer");
+            loadStat("biz/product/list", {pageNum: 1, pageSize: 1}, "stat-product");
+            loadStat("biz/contract/list", {pageNum: 1, pageSize: 1}, "stat-contract");
+            loadStat("biz/purchase/list", {pageNum: 1, pageSize: 1}, "stat-purchase");
+            loadStat("biz/sales/list", {pageNum: 1, pageSize: 1}, "stat-sales");
+            loadStat("biz/stock/list", {pageNum: 1, pageSize: 1}, "stat-stock");
+            loadStat("biz/employee/list", {pageNum: 1, pageSize: 1}, "stat-employee");
+            loadStat("biz/attendance/list", {pageNum: 1, pageSize: 1}, "stat-attendance");
+            loadStat("biz/leave/list", {status: "0", pageNum: 1, pageSize: 1}, "stat-leave");
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.CustomerMapper">
+    
+    <resultMap type="Customer" id="CustomerResult">
+        <id     property="id"           column="customer_id"       />
+        <result property="customerName"    column="customer_name"    />
+        <result property="contactPerson"    column="contact_person"    />
+        <result property="phone"    column="phone"    />
+        <result property="email"    column="email"    />
+        <result property="industry"    column="industry"    />
+        <result property="source"    column="source"    />
+        <result property="address"    column="address"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectCustomerVo">
+        select customer_id,customer_name, contact_person, phone, email, industry, source, address, status, create_by, create_time, update_by, update_time, remark from biz_customer
+    </sql>
+
+    <select id="selectCustomerList" parameterType="Customer" resultMap="CustomerResult">
+        <include refid="selectCustomerVo"/>
+        <where>  
+            <if test="customerName != null  and customerName != ''">
+                and customer_name like concat('%', #{customerName}, '%')
+            </if>
+            <if test="contactPerson != null  and contactPerson != ''">
+                and contact_person like concat('%', #{contactPerson}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by customer_id desc
+    </select>
+    
+    <select id="selectCustomerById" parameterType="Long" resultMap="CustomerResult">
+        <include refid="selectCustomerVo"/>
+        where customer_id = #{id}
+    </select>
+        
+    <insert id="insertCustomer" parameterType="Customer" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_customer(
+            <if test="customerName != null and customerName != ''">customer_name,</if>
+            <if test="contactPerson != null and contactPerson != ''">contact_person,</if>
+            <if test="phone != null and phone != ''">phone,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="industry != null and industry != ''">industry,</if>
+            <if test="source != null and source != ''">source,</if>
+            <if test="address != null and address != ''">address,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="customerName != null and customerName != ''">#{customerName},</if>
+            <if test="contactPerson != null and contactPerson != ''">#{contactPerson},</if>
+            <if test="phone != null and phone != ''">#{phone},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="industry != null and industry != ''">#{industry},</if>
+            <if test="source != null and source != ''">#{source},</if>
+            <if test="address != null and address != ''">#{address},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateCustomer" parameterType="Customer">
+        update biz_customer
+        <set>
+            <if test="customerName != null and customerName != ''">customer_name = #{customerName},</if>
+            <if test="contactPerson != null and contactPerson != ''">contact_person = #{contactPerson},</if>
+            <if test="phone != null and phone != ''">phone = #{phone},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="industry != null and industry != ''">industry = #{industry},</if>
+            <if test="source != null and source != ''">source = #{source},</if>
+            <if test="address != null and address != ''">address = #{address},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where customer_id = #{id}
+    </update>
+
+    <delete id="deleteCustomerByIds" parameterType="String">
+        delete from biz_customer where customer_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

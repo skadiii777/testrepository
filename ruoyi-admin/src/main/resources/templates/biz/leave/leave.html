@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('请假列表')" />
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="leave-form">
+                    <div class="select-list">
+                        <ul>
+                            <li>
+                                员工姓名：<input type="text" name="empName"/>
+                            </li>
+                            <li>
+                                请假类型：<select name="leaveType" th:with="type=${@dict.getType('biz_leave_type')}">
+                                    <option value="">所有</option>
+                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                                </select>
+                            </li>
+                            <li>
+                                开始日期：<input type="text" name="startDate"/>
+                            </li>
+                            <li>
+                                结束日期：<input type="text" name="endDate"/>
+                            </li>
+                            <li>
+                                审批状态：<select name="status" th:with="type=${@dict.getType('biz_leave_status')}">
+                                    <option value="">所有</option>
+                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                                </select>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:leave:add">
+                    <i class="fa fa-plus"></i> 新增
+                </a>
+                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="biz:leave:edit">
+                    <i class="fa fa-edit"></i> 修改
+                </a>
+                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:leave:remove">
+                    <i class="fa fa-remove"></i> 删除
+                </a>
+            </div>
+
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var editFlag = [[${ @permission.hasPermi('biz:leave:edit') }]];
+        var removeFlag = [[${ @permission.hasPermi('biz:leave:remove') }]];
+        var leaveType = [[${@dict.getType('biz_leave_type')}]];
+        var status = [[${@dict.getType('biz_leave_status')}]];
+        var prefix = ctx + "biz/leave";
+
+        $(function() {
+            var options = {
+                url: prefix + "/list",
+                createUrl: prefix + "/add",
+                updateUrl: prefix + "/edit/{id}",
+                removeUrl: prefix + "/remove",
+                modalName: "请假",
+                columns: [{
+                    checkbox: true
+                },
+                {
+                    field: 'id',
+                    title: '编号'
+                },
+                {
+                    field: 'empName',
+                    title: '员工姓名'
+                },
+                {
+                    field: 'leaveType',
+                    title: '请假类型',
+                    align: 'center',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(leaveType, value);
+                    }
+                },
+                {
+                    field: 'startDate',
+                    title: '开始日期'
+                },
+                {
+                    field: 'endDate',
+                    title: '结束日期'
+                },
+                {
+                    field: 'days',
+                    title: '请假天数'
+                },
+                {
+                    field: 'reason',
+                    title: '请假事由'
+                },
+                {
+                    field: 'status',
+                    title: '审批状态',
+                    align: 'center',
+                    formatter: function(value, row, index) {
+                        return $.table.selectDictLabel(status, value);
+                    }
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function(value, row, index) {
+                        var actions = [];
+                        if (row.status === '0') {
+                            actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="auditLeave('\' + row.id + '\', '\1')"><i class="fa fa-check"></i>通过</a> ');
+                            actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="auditLeave('\' + row.id + '\', '\2')"><i class="fa fa-times"></i>驳回</a> ');
+                        }
+                        actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.edit(\'' + row.id + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.id + '\')"><i class="fa fa-remove"></i>删除</a>');
+                        return actions.join('');
+                    }
+                }]
+            };
+            $.table.init(options);
+        });
+
+        // 请假审批
+        function auditLeave(id, status) {
+            var msg = status === '1' ? '确认通过该请假申请吗？' : '确认驳回该请假申请吗？';
+            $.modal.confirm(msg, function() {
+                var data = { "id": id, "status": status, "auditRemark": status === '1' ? '审批通过' : '审批驳回' };
+                $.operate.submit(prefix + "/audit", "post", "json", data);
+            });
+        }
+    </script>
+</body>
+</html>

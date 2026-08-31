@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.LeaveMapper">
+    
+    <resultMap type="Leave" id="LeaveResult">
+        <id     property="id"           column="leave_id"       />
+        <result property="empName"    column="emp_name"    />
+        <result property="leaveType"    column="leave_type"    />
+        <result property="startDate"    column="start_date"    />
+        <result property="endDate"    column="end_date"    />
+        <result property="days"    column="days"    />
+        <result property="reason"    column="reason"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectLeaveVo">
+        select leave_id,emp_name, leave_type, start_date, end_date, days, reason, status, create_by, create_time, update_by, update_time, remark from biz_leave
+    </sql>
+
+    <select id="selectLeaveList" parameterType="Leave" resultMap="LeaveResult">
+        <include refid="selectLeaveVo"/>
+        <where>  
+            <if test="empName != null  and empName != ''">
+                and emp_name like concat('%', #{empName}, '%')
+            </if>
+            <if test="leaveType != null  and leaveType != ''">
+                and leave_type like concat('%', #{leaveType}, '%')
+            </if>
+            <if test="startDate != null  and startDate != ''">
+                and start_date like concat('%', #{startDate}, '%')
+            </if>
+            <if test="endDate != null  and endDate != ''">
+                and end_date like concat('%', #{endDate}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by leave_id desc
+    </select>
+    
+    <select id="selectLeaveById" parameterType="Long" resultMap="LeaveResult">
+        <include refid="selectLeaveVo"/>
+        where leave_id = #{id}
+    </select>
+        
+    <insert id="insertLeave" parameterType="Leave" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_leave(
+            <if test="empName != null and empName != ''">emp_name,</if>
+            <if test="leaveType != null and leaveType != ''">leave_type,</if>
+            <if test="startDate != null and startDate != ''">start_date,</if>
+            <if test="endDate != null and endDate != ''">end_date,</if>
+            <if test="days != null and days != ''">days,</if>
+            <if test="reason != null and reason != ''">reason,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="empName != null and empName != ''">#{empName},</if>
+            <if test="leaveType != null and leaveType != ''">#{leaveType},</if>
+            <if test="startDate != null and startDate != ''">#{startDate},</if>
+            <if test="endDate != null and endDate != ''">#{endDate},</if>
+            <if test="days != null and days != ''">#{days},</if>
+            <if test="reason != null and reason != ''">#{reason},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateLeave" parameterType="Leave">
+        update biz_leave
+        <set>
+            <if test="empName != null and empName != ''">emp_name = #{empName},</if>
+            <if test="leaveType != null and leaveType != ''">leave_type = #{leaveType},</if>
+            <if test="startDate != null and startDate != ''">start_date = #{startDate},</if>
+            <if test="endDate != null and endDate != ''">end_date = #{endDate},</if>
+            <if test="days != null and days != ''">days = #{days},</if>
+            <if test="reason != null and reason != ''">reason = #{reason},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where leave_id = #{id}
+    </update>
+
+    <delete id="deleteLeaveByIds" parameterType="String">
+        delete from biz_leave where leave_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

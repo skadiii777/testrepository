@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.SalesMapper">
+    
+    <resultMap type="Sales" id="SalesResult">
+        <id     property="id"           column="sales_id"       />
+        <result property="salesCode"    column="sales_code"    />
+        <result property="customerName"    column="customer_name"    />
+        <result property="productName"    column="product_name"    />
+        <result property="quantity"    column="quantity"    />
+        <result property="price"    column="price"    />
+        <result property="totalAmount"    column="total_amount"    />
+        <result property="salesDate"    column="sales_date"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectSalesVo">
+        select sales_id,sales_code, customer_name, product_name, quantity, price, total_amount, sales_date, status, create_by, create_time, update_by, update_time, remark from biz_sales
+    </sql>
+
+    <select id="selectSalesList" parameterType="Sales" resultMap="SalesResult">
+        <include refid="selectSalesVo"/>
+        <where>  
+            <if test="salesCode != null  and salesCode != ''">
+                and sales_code like concat('%', #{salesCode}, '%')
+            </if>
+            <if test="customerName != null  and customerName != ''">
+                and customer_name like concat('%', #{customerName}, '%')
+            </if>
+            <if test="productName != null  and productName != ''">
+                and product_name like concat('%', #{productName}, '%')
+            </if>
+            <if test="salesDate != null  and salesDate != ''">
+                and sales_date like concat('%', #{salesDate}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by sales_id desc
+    </select>
+    
+    <select id="selectSalesById" parameterType="Long" resultMap="SalesResult">
+        <include refid="selectSalesVo"/>
+        where sales_id = #{id}
+    </select>
+        
+    <insert id="insertSales" parameterType="Sales" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_sales(
+            <if test="salesCode != null and salesCode != ''">sales_code,</if>
+            <if test="customerName != null and customerName != ''">customer_name,</if>
+            <if test="productName != null and productName != ''">product_name,</if>
+            <if test="quantity != null and quantity != ''">quantity,</if>
+            <if test="price != null and price != ''">price,</if>
+            <if test="totalAmount != null and totalAmount != ''">total_amount,</if>
+            <if test="salesDate != null and salesDate != ''">sales_date,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="salesCode != null and salesCode != ''">#{salesCode},</if>
+            <if test="customerName != null and customerName != ''">#{customerName},</if>
+            <if test="productName != null and productName != ''">#{productName},</if>
+            <if test="quantity != null and quantity != ''">#{quantity},</if>
+            <if test="price != null and price != ''">#{price},</if>
+            <if test="totalAmount != null and totalAmount != ''">#{totalAmount},</if>
+            <if test="salesDate != null and salesDate != ''">#{salesDate},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateSales" parameterType="Sales">
+        update biz_sales
+        <set>
+            <if test="salesCode != null and salesCode != ''">sales_code = #{salesCode},</if>
+            <if test="customerName != null and customerName != ''">customer_name = #{customerName},</if>
+            <if test="productName != null and productName != ''">product_name = #{productName},</if>
+            <if test="quantity != null and quantity != ''">quantity = #{quantity},</if>
+            <if test="price != null and price != ''">price = #{price},</if>
+            <if test="totalAmount != null and totalAmount != ''">total_amount = #{totalAmount},</if>
+            <if test="salesDate != null and salesDate != ''">sales_date = #{salesDate},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where sales_id = #{id}
+    </update>
+
+    <delete id="deleteSalesByIds" parameterType="String">
+        delete from biz_sales where sales_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

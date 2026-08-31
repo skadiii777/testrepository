@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.AttendanceMapper">
+    
+    <resultMap type="Attendance" id="AttendanceResult">
+        <id     property="id"           column="attendance_id"       />
+        <result property="empName"    column="emp_name"    />
+        <result property="workDate"    column="work_date"    />
+        <result property="checkIn"    column="check_in"    />
+        <result property="checkOut"    column="check_out"    />
+        <result property="status"    column="status"    />
+    </resultMap>
+
+    <sql id="selectAttendanceVo">
+        select attendance_id,emp_name, work_date, check_in, check_out, status, create_by, create_time, update_by, update_time, remark from biz_attendance
+    </sql>
+
+    <select id="selectAttendanceList" parameterType="Attendance" resultMap="AttendanceResult">
+        <include refid="selectAttendanceVo"/>
+        <where>  
+            <if test="empName != null  and empName != ''">
+                and emp_name like concat('%', #{empName}, '%')
+            </if>
+            <if test="workDate != null  and workDate != ''">
+                and work_date like concat('%', #{workDate}, '%')
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="remark != null  and remark != ''">
+                and remark like concat('%', #{remark}, '%')
+            </if>
+        </where>
+        order by attendance_id desc
+    </select>
+    
+    <select id="selectAttendanceById" parameterType="Long" resultMap="AttendanceResult">
+        <include refid="selectAttendanceVo"/>
+        where attendance_id = #{id}
+    </select>
+        
+    <insert id="insertAttendance" parameterType="Attendance" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_attendance(
+            <if test="empName != null and empName != ''">emp_name,</if>
+            <if test="workDate != null and workDate != ''">work_date,</if>
+            <if test="checkIn != null and checkIn != ''">check_in,</if>
+            <if test="checkOut != null and checkOut != ''">check_out,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="empName != null and empName != ''">#{empName},</if>
+            <if test="workDate != null and workDate != ''">#{workDate},</if>
+            <if test="checkIn != null and checkIn != ''">#{checkIn},</if>
+            <if test="checkOut != null and checkOut != ''">#{checkOut},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+        
+    <update id="updateAttendance" parameterType="Attendance">
+        update biz_attendance
+        <set>
+            <if test="empName != null and empName != ''">emp_name = #{empName},</if>
+            <if test="workDate != null and workDate != ''">work_date = #{workDate},</if>
+            <if test="checkIn != null and checkIn != ''">check_in = #{checkIn},</if>
+            <if test="checkOut != null and checkOut != ''">check_out = #{checkOut},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where attendance_id = #{id}
+    </update>
+
+    <delete id="deleteAttendanceByIds" parameterType="String">
+        delete from biz_attendance where attendance_id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>
