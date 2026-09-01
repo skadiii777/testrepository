@@ -44,3 +44,9 @@ nbdist/
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
+######################################################################
+# Runtime logs & local artifacts
+logs/
+run.log
+sys-*.log
+.mimosa/
