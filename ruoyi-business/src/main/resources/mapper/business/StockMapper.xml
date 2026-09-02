@@ -32,6 +32,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by stock_id desc
     </select>
     
+    <select id="selectLowStockList" resultMap="StockResult">
+        <include refid="selectStockVo"/>
+        where quantity &lt;= min_quantity
+        order by quantity asc
+    </select>
+
     <select id="selectStockByProductAndWarehouse" parameterType="Stock" resultMap="StockResult">
         <include refid="selectStockVo"/>
         where product_name = #{productName} and warehouse = #{warehouse} limit 1

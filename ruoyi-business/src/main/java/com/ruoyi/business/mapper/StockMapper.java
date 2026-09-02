@@ -24,4 +24,9 @@ public interface StockMapper
      * 根据产品名称和仓库查询库存
      */
     public Stock selectStockByProductAndWarehouse(Stock stock);
+
+    /**
+     * 查询库存低于预警下限的记录
+     */
+    public List<Stock> selectLowStockList();
 }

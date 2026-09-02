@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Purchase;
 import com.ruoyi.business.service.IPurchaseService;
@@ -83,6 +84,17 @@ public class PurchaseController extends BaseController
     {
         purchase.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(purchaseService.updatePurchase(purchase));
+    }
+
+    @RequiresPermissions("biz:purchase:export")
+    @Log(title = "采购单", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Purchase purchase)
+    {
+        List<Purchase> list = purchaseService.selectPurchaseList(purchase);
+        ExcelUtil<Purchase> util = new ExcelUtil<Purchase>(Purchase.class);
+        return util.exportExcel(list, "采购单数据");
     }
 
     @RequiresPermissions("biz:purchase:remove")

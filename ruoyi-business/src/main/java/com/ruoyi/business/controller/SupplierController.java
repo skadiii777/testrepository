@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Supplier;
 import com.ruoyi.business.service.ISupplierService;
@@ -83,6 +84,17 @@ public class SupplierController extends BaseController
     {
         supplier.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(supplierService.updateSupplier(supplier));
+    }
+
+    @RequiresPermissions("biz:supplier:export")
+    @Log(title = "供应商", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Supplier supplier)
+    {
+        List<Supplier> list = supplierService.selectSupplierList(supplier);
+        ExcelUtil<Supplier> util = new ExcelUtil<Supplier>(Supplier.class);
+        return util.exportExcel(list, "供应商数据");
     }
 
     @RequiresPermissions("biz:supplier:remove")

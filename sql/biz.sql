@@ -389,3 +389,16 @@ insert into sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status,
 values (1, '待审批', '0', 'biz_leave_status', '0', 'admin', sysdate()),
        (2, '已通过', '1', 'biz_leave_status', '0', 'admin', sysdate()),
        (3, '已驳回', '2', 'biz_leave_status', '0', 'admin', sysdate());
+
+-- ----------------------------
+-- 数据看板菜单 + 各模块导出按钮权限（拓展功能）
+-- ----------------------------
+insert into sys_menu (menu_name, parent_id, order_num, url, menu_type, visible, perms, icon, create_by, create_time)
+select '数据看板', menu_id, 0, 'biz/dashboard', 'C', '0', 'biz:dashboard:view', 'fa fa-dashboard', 'admin', sysdate()
+from sys_menu where menu_name='企业管理' and menu_type='M' limit 1;
+
+insert into sys_menu (menu_name, parent_id, order_num, menu_type, visible, perms, create_by, create_time)
+select concat(m.menu_name,'导出'), m.menu_id, 5, 'F', '0', concat(substring_index(m.perms, ':view', 1), ':export'), 'admin', sysdate()
+from sys_menu m
+where m.menu_type='C' and m.perms like 'biz:%:view' and m.parent_id in (
+  select menu_id from (select menu_id from sys_menu where menu_name in ('客户合同产品','进销存管理','人事考勤')) t);

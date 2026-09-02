@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Product;
 import com.ruoyi.business.service.IProductService;
@@ -83,6 +84,17 @@ public class ProductController extends BaseController
     {
         product.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(productService.updateProduct(product));
+    }
+
+    @RequiresPermissions("biz:product:export")
+    @Log(title = "产品", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Product product)
+    {
+        List<Product> list = productService.selectProductList(product);
+        ExcelUtil<Product> util = new ExcelUtil<Product>(Product.class);
+        return util.exportExcel(list, "产品数据");
     }
 
     @RequiresPermissions("biz:product:remove")

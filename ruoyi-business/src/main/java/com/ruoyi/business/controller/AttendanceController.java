@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Attendance;
 import com.ruoyi.business.service.IAttendanceService;
@@ -83,6 +84,17 @@ public class AttendanceController extends BaseController
     {
         attendance.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(attendanceService.updateAttendance(attendance));
+    }
+
+    @RequiresPermissions("biz:attendance:export")
+    @Log(title = "考勤", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Attendance attendance)
+    {
+        List<Attendance> list = attendanceService.selectAttendanceList(attendance);
+        ExcelUtil<Attendance> util = new ExcelUtil<Attendance>(Attendance.class);
+        return util.exportExcel(list, "考勤数据");
     }
 
     @RequiresPermissions("biz:attendance:remove")

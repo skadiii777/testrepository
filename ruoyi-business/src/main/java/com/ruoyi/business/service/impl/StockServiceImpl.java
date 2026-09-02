@@ -51,6 +51,12 @@ public class StockServiceImpl implements IStockService
 
 
     @Override
+    public List<Stock> selectLowStockList()
+    {
+        return stockMapper.selectLowStockList();
+    }
+
+    @Override
     public Long findQuantity(String productName, String warehouse)
     {
         Stock query = new Stock();

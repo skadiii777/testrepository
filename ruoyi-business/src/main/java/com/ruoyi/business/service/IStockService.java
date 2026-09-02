@@ -31,4 +31,9 @@ public interface IStockService
      * 查询指定产品在默认仓库的当前库存数量（无记录返回0）
      */
     public Long findQuantity(String productName, String warehouse);
+
+    /**
+     * 查询库存低于预警下限的记录
+     */
+    public List<Stock> selectLowStockList();
 }

@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Employee;
 import com.ruoyi.business.service.IEmployeeService;
@@ -83,6 +84,17 @@ public class EmployeeController extends BaseController
     {
         employee.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(employeeService.updateEmployee(employee));
+    }
+
+    @RequiresPermissions("biz:employee:export")
+    @Log(title = "员工", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Employee employee)
+    {
+        List<Employee> list = employeeService.selectEmployeeList(employee);
+        ExcelUtil<Employee> util = new ExcelUtil<Employee>(Employee.class);
+        return util.exportExcel(list, "员工数据");
     }
 
     @RequiresPermissions("biz:employee:remove")

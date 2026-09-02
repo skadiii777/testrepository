@@ -199,11 +199,52 @@ def test_system():
     check("系统-请假页面含审批按钮", "auditLeave" in r.text)
 
 
+
+# ---------------- 5. 拓展功能：看板/预警/导出 ----------------
+def test_extension():
+    r = req("get", "/biz/dashboard")
+    check("拓展-看板页面渲染", r.status_code == 200 and "echarts" in r.text, "HTTP %s" % r.status_code)
+    r = req("post", "/biz/dashboard/panel", data={})
+    check("拓展-看板指标接口", r.json().get("code") == 0 and "customerCount" in r.text, r.text[:100])
+    r = req("post", "/biz/dashboard/trend", data={})
+    d = r.json().get("data", {})
+    check("拓展-近7日趋势(7个点+零填充)",
+          r.json().get("code") == 0 and len(d.get("dates", [])) == 7 and len(d.get("sales", [])) == 7,
+          r.text[:150])
+    r = req("post", "/biz/dashboard/productTop", data={})
+    check("拓展-产品Top5接口", r.json().get("code") == 0, r.text[:100])
+    r = req("post", "/biz/dashboard/status", data={})
+    check("拓展-状态分布接口", r.json().get("code") == 0 and "contract" in r.text, r.text[:100])
+
+    r = req("get", "/biz/stock/alert")
+    check("拓展-库存预警页渲染", r.status_code == 200, "HTTP %s" % r.status_code)
+    r = req("post", "/biz/stock/alertList", data={})
+    check("拓展-库存预警列表", r.status_code == 200 and "total" in r.json(), r.text[:100])
+    # 预警数据闭环：库存1、下限10 -> 出现在预警里；补货到100 -> 消失
+    req("post", "/biz/stock/add", data=dict(productName="__预警测试产品__", warehouse="默认仓库",
+                                            quantity="1", minQuantity="10"))
+    r = req("post", "/biz/stock/alertList", data={"productName": "__预警测试产品__"})
+    check("拓展-低库存触发预警", r.json().get("total", 0) >= 1, r.text[:120])
+    rid = find_id("stock", "productName", "__预警测试产品__")
+    if rid:
+        req("post", "/biz/stock/edit", data=dict(id=rid, productName="__预警测试产品__",
+                                                 warehouse="默认仓库", quantity="100", minQuantity="10"))
+        r = req("post", "/biz/stock/alertList", data={"productName": "__预警测试产品__"})
+        check("拓展-补货后预警解除", r.json().get("total", 0) == 0, r.text[:120])
+        delete("stock", rid)
+
+    for name in ("customer", "product", "sales"):
+        r = req("post", "/biz/%s/export" % name, data={})
+        ok = r.json().get("code") == 0 and (".xlsx" in r.text or "xlsx" in r.text)
+        check("拓展-%s导出" % name, ok, r.text[:120])
+
+
 if __name__ == "__main__":
     test_auth()
     test_crud()
     test_rules()
     test_system()
+    test_extension()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

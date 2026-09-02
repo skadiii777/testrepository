@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Stock;
 import com.ruoyi.business.service.IStockService;
@@ -83,6 +84,40 @@ public class StockController extends BaseController
     {
         stock.setUpdateBy(ShiroUtils.getLoginName());
         return toAjax(stockService.updateStock(stock));
+    }
+
+    @RequiresPermissions("biz:stock:export")
+    @Log(title = "库存", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Stock stock)
+    {
+        List<Stock> list = stockService.selectStockList(stock);
+        ExcelUtil<Stock> util = new ExcelUtil<Stock>(Stock.class);
+        return util.exportExcel(list, "库存数据");
+    }
+
+    /**
+     * 库存预警页面
+     */
+    @RequiresPermissions("biz:stock:list")
+    @GetMapping("/alert")
+    public String alert()
+    {
+        return prefix + "/alert";
+    }
+
+    /**
+     * 库存预警列表（库存量 <= 预警下限）
+     */
+    @RequiresPermissions("biz:stock:list")
+    @PostMapping("/alertList")
+    @ResponseBody
+    public TableDataInfo alertList(Stock stock)
+    {
+        startPage();
+        List<Stock> list = stockService.selectLowStockList();
+        return getDataTable(list);
     }
 
     @RequiresPermissions("biz:stock:remove")

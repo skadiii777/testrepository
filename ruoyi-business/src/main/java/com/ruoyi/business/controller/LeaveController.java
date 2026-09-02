@@ -15,6 +15,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.business.domain.Leave;
 import com.ruoyi.business.service.ILeaveService;
@@ -99,6 +100,17 @@ public class LeaveController extends BaseController
             return error("审批状态不合法");
         }
         return toAjax(leaveService.auditLeave(id, status, auditRemark));
+    }
+
+    @RequiresPermissions("biz:leave:export")
+    @Log(title = "请假", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    @ResponseBody
+    public AjaxResult export(Leave leave)
+    {
+        List<Leave> list = leaveService.selectLeaveList(leave);
+        ExcelUtil<Leave> util = new ExcelUtil<Leave>(Leave.class);
+        return util.exportExcel(list, "请假数据");
     }
 
     @RequiresPermissions("biz:leave:remove")
