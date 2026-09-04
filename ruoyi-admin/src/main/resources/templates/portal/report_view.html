@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('汇报详情')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">汇报类型：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static"
+                       th:text="${report.reportType=='1'}?'日报':(${report.reportType=='2'}?'周报':'月报')"></p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">汇报日期：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static" th:text="${report.reportDate}"></p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">标题：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static" th:text="${report.title}"></p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">汇报内容：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static" th:text="${report.content}" style="white-space:pre-wrap;"></p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">提交人：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static" th:text="${report.createBy}"></p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">提交时间：</label>
+                <div class="col-sm-8">
+                    <p class="form-control-static" th:text="${#dates.format(report.createTime,'yyyy-MM-dd HH:mm:ss')}"></p>
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+</body>
+</html>

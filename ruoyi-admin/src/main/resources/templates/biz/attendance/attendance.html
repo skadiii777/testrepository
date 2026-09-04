@@ -55,7 +55,7 @@
     <script th:inline="javascript">
         var editFlag = [[${ @permission.hasPermi('biz:attendance:edit') }]];
         var removeFlag = [[${ @permission.hasPermi('biz:attendance:remove') }]];
-        var status = [[${@dict.getType('biz_attendance_status')}]];
+        var statusDict = [[${@dict.getType('biz_attendance_status')}]];
         var prefix = ctx + "biz/attendance";
 
         $(function() {
@@ -94,7 +94,7 @@
                     title: '考勤状态',
                     align: 'center',
                     formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(status, value);
+                        return $.table.selectDictLabel(statusDict, value);
                     }
                 },
                 {

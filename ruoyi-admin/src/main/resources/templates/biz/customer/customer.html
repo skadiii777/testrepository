@@ -55,7 +55,7 @@
     <script th:inline="javascript">
         var editFlag = [[${ @permission.hasPermi('biz:customer:edit') }]];
         var removeFlag = [[${ @permission.hasPermi('biz:customer:remove') }]];
-        var status = [[${@dict.getType('sys_normal_disable')}]];
+        var statusDict = [[${@dict.getType('sys_normal_disable')}]];
         var prefix = ctx + "biz/customer";
 
         $(function() {
@@ -106,7 +106,7 @@
                     title: '状态',
                     align: 'center',
                     formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(status, value);
+                        return $.table.selectDictLabel(statusDict, value);
                     }
                 },
                 {

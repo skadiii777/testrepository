@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.LeaveQuotaMapper">
+
+    <resultMap type="LeaveQuota" id="LeaveQuotaResult">
+        <id     property="id"           column="quota_id"       />
+        <result property="empName"      column="emp_name"       />
+        <result property="leaveType"    column="leave_type"     />
+        <result property="year"         column="year"           />
+        <result property="quotaDays"    column="quota_days"     />
+        <result property="usedDays"     column="used_days"      />
+        <result property="remark"       column="remark"         />
+        <result property="createBy"     column="create_by"      />
+        <result property="createTime"   column="create_time"    />
+        <result property="updateBy"     column="update_by"      />
+        <result property="updateTime"   column="update_time"    />
+    </resultMap>
+
+    <sql id="selectLeaveQuotaVo">
+        select quota_id, emp_name, leave_type, year, quota_days, used_days, remark, create_by, create_time, update_by, update_time from biz_leave_quota
+    </sql>
+
+    <select id="selectLeaveQuotaList" parameterType="LeaveQuota" resultMap="LeaveQuotaResult">
+        <include refid="selectLeaveQuotaVo"/>
+        <where>
+            <if test="empName != null  and empName != ''">
+                and emp_name like concat('%', #{empName}, '%')
+            </if>
+            <if test="leaveType != null  and leaveType != ''">
+                and leave_type = #{leaveType}
+            </if>
+            <if test="year != null  and year != ''">
+                and year = #{year}
+            </if>
+        </where>
+        order by emp_name, leave_type
+    </select>
+
+    <select id="selectLeaveQuotaUnique" parameterType="LeaveQuota" resultMap="LeaveQuotaResult">
+        <include refid="selectLeaveQuotaVo"/>
+        where emp_name = #{empName} and leave_type = #{leaveType} and year = #{year} limit 1
+    </select>
+
+    <select id="selectLeaveQuotaById" parameterType="Long" resultMap="LeaveQuotaResult">
+        <include refid="selectLeaveQuotaVo"/>
+        where quota_id = #{id}
+    </select>
+
+    <insert id="insertLeaveQuota" parameterType="LeaveQuota" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_leave_quota(
+            <if test="empName != null and empName != ''">emp_name,</if>
+            <if test="leaveType != null and leaveType != ''">leave_type,</if>
+            <if test="year != null and year != ''">year,</if>
+            <if test="quotaDays != null">quota_days,</if>
+            <if test="usedDays != null">used_days,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="empName != null and empName != ''">#{empName},</if>
+            <if test="leaveType != null and leaveType != ''">#{leaveType},</if>
+            <if test="year != null and year != ''">#{year},</if>
+            <if test="quotaDays != null">#{quotaDays},</if>
+            <if test="usedDays != null">#{usedDays},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+
+    <update id="updateLeaveQuota" parameterType="LeaveQuota">
+        update biz_leave_quota
+        <set>
+            <if test="empName != null and empName != ''">emp_name = #{empName},</if>
+            <if test="leaveType != null and leaveType != ''">leave_type = #{leaveType},</if>
+            <if test="year != null and year != ''">year = #{year},</if>
+            <if test="quotaDays != null">quota_days = #{quotaDays},</if>
+            <if test="usedDays != null">used_days = #{usedDays},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where quota_id = #{id}
+    </update>
+
+    <!-- 原子增减已用天数，且用配额做并发兜底（剩余额度不足时更新0行） -->
+    <update id="adjustUsedDays" parameterType="LeaveQuota">
+        update biz_leave_quota
+        set used_days = used_days + #{usedDays}, update_time = sysdate()
+        where quota_id = #{id}
+        <if test="quotaDays != null">
+            and used_days + #{usedDays} &lt;= quota_days
+        </if>
+    </update>
+
+    <delete id="deleteLeaveQuotaByIds" parameterType="String">
+        delete from biz_leave_quota where quota_id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

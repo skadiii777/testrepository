@@ -1,29 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
 <head>
-    <th:block th:include="include :: header('产品列表')" />
+    <th:block th:include="include :: header('假期余额列表')" />
 </head>
 <body class="gray-bg">
     <div class="container-div">
         <div class="row">
             <div class="col-sm-12 search-collapse">
-                <form id="product-form">
+                <form id="quota-form">
                     <div class="select-list">
                         <ul>
                             <li>
-                                产品编号：<input type="text" name="productCode"/>
+                                员工姓名：<input type="text" name="empName"/>
                             </li>
                             <li>
-                                产品名称：<input type="text" name="productName"/>
-                            </li>
-                            <li>
-                                产品分类：<input type="text" name="category"/>
-                            </li>
-                            <li>
-                                状态：<select name="status" th:with="type=${@dict.getType('sys_normal_disable')}">
+                                假期类型：<select name="leaveType" th:with="type=${@dict.getType('biz_leave_type')}">
                                     <option value="">所有</option>
                                     <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
                                 </select>
+                            </li>
+                            <li>
+                                年份：<input type="text" name="year" placeholder="如 2026"/>
                             </li>
                             <li>
                                 <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
@@ -35,17 +32,17 @@
             </div>
 
             <div class="btn-group-sm" id="toolbar" role="group">
-                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:product:add">
+                <a class="btn btn-success" onclick="$.operate.add()" shiro:hasPermission="biz:quota:add">
                     <i class="fa fa-plus"></i> 新增
                 </a>
-                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="biz:product:edit">
+                <a class="btn btn-primary single disabled" onclick="$.operate.edit()" shiro:hasPermission="biz:quota:edit">
                     <i class="fa fa-edit"></i> 修改
                 </a>
-                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:product:export">
-                    <i class="fa fa-download"></i> 导出
-                </a>
-                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:product:remove">
+                <a class="btn btn-danger multiple disabled" onclick="$.operate.removeAll()" shiro:hasPermission="biz:quota:remove">
                     <i class="fa fa-remove"></i> 删除
+                </a>
+                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:quota:export">
+                    <i class="fa fa-download"></i> 导出
                 </a>
             </div>
 
@@ -56,10 +53,10 @@
     </div>
     <th:block th:include="include :: footer" />
     <script th:inline="javascript">
-        var editFlag = [[${ @permission.hasPermi('biz:product:edit') }]];
-        var removeFlag = [[${ @permission.hasPermi('biz:product:remove') }]];
-        var statusDict = [[${@dict.getType('sys_normal_disable')}]];
-        var prefix = ctx + "biz/product";
+        var editFlag = [[${@permission.hasPermi('biz:quota:edit')}]];
+        var removeFlag = [[${@permission.hasPermi('biz:quota:remove')}]];
+        var types = [[${@dict.getType('biz_leave_type')}]];
+        var prefix = ctx + "biz/quota";
 
         $(function() {
             var options = {
@@ -68,7 +65,7 @@
                 updateUrl: prefix + "/edit/{id}",
                 removeUrl: prefix + "/remove",
                 exportUrl: prefix + "/export",
-                modalName: "产品",
+                modalName: "假期余额",
                 columns: [{
                     checkbox: true
                 },
@@ -77,36 +74,42 @@
                     title: '编号'
                 },
                 {
-                    field: 'productCode',
-                    title: '产品编号'
+                    field: 'empName',
+                    title: '员工姓名'
                 },
                 {
-                    field: 'productName',
-                    title: '产品名称'
-                },
-                {
-                    field: 'category',
-                    title: '产品分类'
-                },
-                {
-                    field: 'unit',
-                    title: '单位'
-                },
-                {
-                    field: 'price',
-                    title: '销售单价'
-                },
-                {
-                    field: 'cost',
-                    title: '成本价'
-                },
-                {
-                    field: 'status',
-                    title: '状态',
+                    field: 'leaveType',
+                    title: '假期类型',
                     align: 'center',
-                    formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(statusDict, value);
+                    formatter: function(value) { return $.table.selectDictLabel(types, value); }
+                },
+                {
+                    field: 'year',
+                    title: '年份',
+                    align: 'center'
+                },
+                {
+                    field: 'quotaDays',
+                    title: '配额天数',
+                    align: 'center'
+                },
+                {
+                    field: 'usedDays',
+                    title: '已用天数',
+                    align: 'center'
+                },
+                {
+                    title: '剩余天数',
+                    align: 'center',
+                    formatter: function(value, row) {
+                        var remain = (row.quotaDays || 0) - (row.usedDays || 0);
+                        var cls = remain <= 0 ? 'label label-danger' : (remain < 2 ? 'label label-warning' : 'label label-success');
+                        return '<span class="' + cls + '">' + remain + '</span>';
                     }
+                },
+                {
+                    field: 'remark',
+                    title: '备注'
                 },
                 {
                     title: '操作',

@@ -58,7 +58,7 @@
     <script th:inline="javascript">
         var editFlag = [[${ @permission.hasPermi('biz:contract:edit') }]];
         var removeFlag = [[${ @permission.hasPermi('biz:contract:remove') }]];
-        var status = [[${@dict.getType('biz_contract_status')}]];
+        var statusDict = [[${@dict.getType('biz_contract_status')}]];
         var prefix = ctx + "biz/contract";
 
         $(function() {
@@ -113,7 +113,7 @@
                     title: '合同状态',
                     align: 'center',
                     formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(status, value);
+                        return $.table.selectDictLabel(statusDict, value);
                     }
                 },
                 {

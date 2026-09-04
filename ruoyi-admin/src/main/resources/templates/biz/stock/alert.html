@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('库存预警')" />
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="stock-form">
+                    <div class="select-list">
+                        <ul>
+                            <li>
+                                产品名称：<input type="text" name="productName"/>
+                            </li>
+                            <li>
+                                仓库：<input type="text" name="warehouse"/>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/stock";
+
+        $(function() {
+            var options = {
+                url: prefix + "/alertList",
+                modalName: "库存预警",
+                columns: [{
+                    field: 'id',
+                    title: '编号'
+                },
+                {
+                    field: 'productName',
+                    title: '产品名称'
+                },
+                {
+                    field: 'warehouse',
+                    title: '仓库'
+                },
+                {
+                    field: 'quantity',
+                    title: '当前库存',
+                    align: 'center',
+                    formatter: function(value) {
+                        return '<span class="label label-danger">' + value + '</span>';
+                    }
+                },
+                {
+                    field: 'minQuantity',
+                    title: '预警下限',
+                    align: 'center'
+                },
+                {
+                    field: 'updateTime',
+                    title: '更新时间'
+                }]
+            };
+            $.table.init(options);
+        });
+    </script>
+</body>
+</html>

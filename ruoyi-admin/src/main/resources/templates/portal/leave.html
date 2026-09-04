@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('我的请假')" />
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="leave-form">
+                    <div class="select-list">
+                        <ul>
+                            <li>
+                                请假类型：<select name="leaveType" th:with="type=${@dict.getType('biz_leave_type')}">
+                                    <option value="">所有</option>
+                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                                </select>
+                            </li>
+                            <li>
+                                审批状态：<select name="status" th:with="type=${@dict.getType('biz_leave_status')}">
+                                    <option value="">所有</option>
+                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                                </select>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-success" onclick="$.modal.open('提交请假', 'portal/leave/add')" shiro:hasPermission="portal:leave:add">
+                    <i class="fa fa-plus"></i> 提交请假
+                </a>
+            </div>
+
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var types = [[${@dict.getType('biz_leave_type')}]];
+        var statusList = [[${@dict.getType('biz_leave_status')}]];
+        var prefix = ctx + "portal/leave";
+
+        $(function() {
+            var options = {
+                url: prefix + "/list",
+                modalName: "请假",
+                columns: [{
+                    checkbox: true
+                },
+                {
+                    field: 'id',
+                    title: '编号'
+                },
+                {
+                    field: 'leaveType',
+                    title: '请假类型',
+                    align: 'center',
+                    formatter: function(value) { return $.table.selectDictLabel(types, value); }
+                },
+                {
+                    field: 'startDate',
+                    title: '开始日期'
+                },
+                {
+                    field: 'endDate',
+                    title: '结束日期'
+                },
+                {
+                    field: 'days',
+                    title: '天数',
+                    align: 'center'
+                },
+                {
+                    field: 'reason',
+                    title: '事由'
+                },
+                {
+                    field: 'status',
+                    title: '审批状态',
+                    align: 'center',
+                    formatter: function(value) { return $.table.selectDictLabel(statusList, value); }
+                },
+                {
+                    field: 'remark',
+                    title: '审批意见'
+                },
+                {
+                    field: 'createTime',
+                    title: '提交时间'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function(value, row) {
+                        if (row.status === '1') {
+                            return '<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="cancelLeave(\'' + row.id + '\')"><i class="fa fa-undo"></i>销假</a>';
+                        }
+                        return '-';
+                    }
+                }]
+            };
+            $.table.init(options);
+        });
+
+        function cancelLeave(id) {
+            $.modal.confirm('确认销假？销假后本次请假记录将标记为已销假', function() {
+                $.post(ctx + "portal/leave/cancel", { id: id }, function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess("销假成功");
+                        $.table.refresh();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

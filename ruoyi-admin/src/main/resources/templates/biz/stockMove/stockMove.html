@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <th:block th:include="include :: header('库存流水')" />
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12 search-collapse">
+                <form id="stockMove-form">
+                    <div class="select-list">
+                        <ul>
+                            <li>
+                                产品名称：<input type="text" name="productName"/>
+                            </li>
+                            <li>
+                                仓库：<input type="text" name="warehouse"/>
+                            </li>
+                            <li>
+                                类型：<select name="moveType">
+                                    <option value="">所有</option>
+                                    <option value="1">入库</option>
+                                    <option value="2">出库</option>
+                                </select>
+                            </li>
+                            <li>
+                                来源单号：<input type="text" name="sourceCode"/>
+                            </li>
+                            <li class="select-time">
+                                时间：<input type="text" class="time-input" name="params[beginTime]" placeholder="开始"/> -
+                                <input type="text" class="time-input" name="params[endTime]" placeholder="结束"/>
+                            </li>
+                            <li>
+                                <a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
+                                <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+                            </li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+
+            <div class="btn-group-sm" id="toolbar" role="group">
+                <a class="btn btn-warning" onclick="$.table.exportExcel()" shiro:hasPermission="biz:stockMove:export">
+                    <i class="fa fa-download"></i> 导出
+                </a>
+            </div>
+
+            <div class="col-sm-12 select-table table-striped">
+                <table id="bootstrap-table"></table>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var prefix = ctx + "biz/stockMove";
+
+        $(function() {
+            var options = {
+                url: prefix + "/list",
+                exportUrl: prefix + "/export",
+                modalName: "库存流水",
+                sortName: "move_id",
+                sortOrder: "desc",
+                columns: [{
+                    field: 'id',
+                    title: '流水号'
+                },
+                {
+                    field: 'moveType',
+                    title: '类型',
+                    align: 'center',
+                    formatter: function(value) {
+                        return value === '1'
+                            ? '<span class="label label-success">入库</span>'
+                            : '<span class="label label-danger">出库</span>';
+                    }
+                },
+                {
+                    field: 'productName',
+                    title: '产品名称'
+                },
+                {
+                    field: 'warehouse',
+                    title: '仓库'
+                },
+                {
+                    field: 'quantity',
+                    title: '数量',
+                    align: 'center'
+                },
+                {
+                    field: 'balanceAfter',
+                    title: '结余',
+                    align: 'center'
+                },
+                {
+                    field: 'sourceType',
+                    title: '来源类型',
+                    align: 'center',
+                    formatter: function(value) {
+                        var map = {'purchase':'采购入库','sales':'销售出库','manual':'手工调整'};
+                        return map[value] || value || '-';
+                    }
+                },
+                {
+                    field: 'sourceCode',
+                    title: '来源单号'
+                },
+                {
+                    field: 'createBy',
+                    title: '操作人'
+                },
+                {
+                    field: 'createTime',
+                    title: '操作时间',
+                    sortable: true
+                }]
+            };
+            $.table.init(options);
+        });
+    </script>
+</body>
+</html>

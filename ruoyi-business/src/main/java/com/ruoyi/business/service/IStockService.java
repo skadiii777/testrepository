@@ -28,6 +28,11 @@ public interface IStockService
     public Long changeStock(String productName, String warehouse, Long delta);
 
     /**
+     * 库存变更并记录来源信息
+     */
+    public Long changeStock(String productName, String warehouse, Long delta, String sourceType, String sourceCode);
+
+    /**
      * 查询指定产品在默认仓库的当前库存数量（无记录返回0）
      */
     public Long findQuantity(String productName, String warehouse);

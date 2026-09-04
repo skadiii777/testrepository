@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.business.domain.Stock;
 import com.ruoyi.business.mapper.StockMapper;
+import com.ruoyi.business.service.IStockMoveService;
 import com.ruoyi.business.service.IStockService;
 
 /**
@@ -18,6 +19,9 @@ public class StockServiceImpl implements IStockService
 {
     @Autowired
     private StockMapper stockMapper;
+
+    @Autowired
+    private IStockMoveService stockMoveService;
 
     @Override
     public Stock selectStockById(Long id)
@@ -67,7 +71,20 @@ public class StockServiceImpl implements IStockService
     }
 
     @Override
+    public Long changeStock(String productName, String warehouse, Long delta, String sourceType, String sourceCode)
+    {
+        return doChangeStock(productName, warehouse, delta, sourceType, sourceCode);
+    }
+
+    /** 原始3参数版：不带来源信息 */
+    @Override
     public synchronized Long changeStock(String productName, String warehouse, Long delta)
+    {
+        return doChangeStock(productName, warehouse, delta, "manual", "");
+    }
+
+    private synchronized Long doChangeStock(String productName, String warehouse, Long delta,
+                                           String sourceType, String sourceCode)
     {
         Stock query = new Stock();
         query.setProductName(productName);
@@ -91,6 +108,16 @@ public class StockServiceImpl implements IStockService
         update.setId(stock.getId());
         update.setQuantity(newQty);
         stockMapper.updateStock(update);
+        // 落流水（不可变）
+        stockMoveService.record(
+            productName,
+            warehouse == null ? "默认仓库" : warehouse,
+            delta >= 0 ? "1" : "2",
+            java.math.BigDecimal.valueOf(Math.abs(delta)),
+            java.math.BigDecimal.valueOf(newQty),
+            sourceType == null ? "manual" : sourceType,
+            sourceCode == null ? "" : sourceCode,
+            com.ruoyi.common.utils.ShiroUtils.getLoginName());
         return newQty;
     }
 }

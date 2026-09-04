@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('提交报销')" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-expense-add">
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">费用类别：</label>
+                <div class="col-sm-8">
+                    <select name="category" class="form-control m-b" th:with="type=${@dict.getType('biz_expense_type')}">
+                        <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">金额（元）：</label>
+                <div class="col-sm-8">
+                    <input name="amount" class="form-control" type="number" step="0.01" min="0.01" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label is-required">费用发生日期：</label>
+                <div class="col-sm-8">
+                    <input id="expenseDate" name="expenseDate" class="form-control" type="text" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">费用说明：</label>
+                <div class="col-sm-8">
+                    <textarea name="reason" class="form-control" rows="4" placeholder="如：出差至北京的高铁票及住宿"></textarea>
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <th:block th:include="include :: datetimepicker-css" />
+    <th:block th:include="include :: datetimepicker-js" />
+    <script type="text/javascript">
+        var prefix = ctx + "portal/expense";
+
+        $("#expenseDate").datetimepicker({
+            format: "yyyy-mm-dd",
+            minView: "month",
+            autoclose: true,
+            language: 'zh-CN'
+        });
+
+        $("#form-expense-add").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                $.operate.save(prefix + "/add", $('#form-expense-add').serialize());
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.ExpenseMapper">
+
+    <resultMap type="Expense" id="ExpenseResult">
+        <id     property="id"           column="expense_id"     />
+        <result property="empName"      column="emp_name"       />
+        <result property="category"     column="category"       />
+        <result property="amount"       column="amount"         />
+        <result property="expenseDate"  column="expense_date"   />
+        <result property="reason"       column="reason"         />
+        <result property="status"       column="status"         />
+        <result property="auditRemark"  column="audit_remark"   />
+        <result property="auditBy"      column="audit_by"       />
+        <result property="auditTime"    column="audit_time"     />
+        <result property="createBy"     column="create_by"      />
+        <result property="createTime"   column="create_time"    />
+        <result property="updateBy"     column="update_by"      />
+        <result property="updateTime"   column="update_time"    />
+        <result property="remark"       column="remark"         />
+    </resultMap>
+
+    <sql id="selectExpenseVo">
+        select expense_id, emp_name, category, amount, expense_date, reason, status, audit_remark, audit_by, audit_time, create_by, create_time, update_by, update_time, remark from biz_expense
+    </sql>
+
+    <select id="selectExpenseList" parameterType="Expense" resultMap="ExpenseResult">
+        <include refid="selectExpenseVo"/>
+        <where>
+            <if test="empName != null  and empName != ''">
+                and emp_name like concat('%', #{empName}, '%')
+            </if>
+            <if test="category != null  and category != ''">
+                and category = #{category}
+            </if>
+            <if test="status != null  and status != ''">
+                and status = #{status}
+            </if>
+            <if test="expenseDate != null  and expenseDate != ''">
+                and expense_date = #{expenseDate}
+            </if>
+            <if test="params.createBy != null  and params.createBy != ''">
+                and create_by = #{params.createBy}
+            </if>
+        </where>
+        order by expense_id desc
+    </select>
+
+    <select id="selectExpenseById" parameterType="Long" resultMap="ExpenseResult">
+        <include refid="selectExpenseVo"/>
+        where expense_id = #{id}
+    </select>
+
+    <insert id="insertExpense" parameterType="Expense" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_expense(
+            <if test="empName != null and empName != ''">emp_name,</if>
+            <if test="category != null and category != ''">category,</if>
+            <if test="amount != null">amount,</if>
+            <if test="expenseDate != null and expenseDate != ''">expense_date,</if>
+            <if test="reason != null and reason != ''">reason,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="empName != null and empName != ''">#{empName},</if>
+            <if test="category != null and category != ''">#{category},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="expenseDate != null and expenseDate != ''">#{expenseDate},</if>
+            <if test="reason != null and reason != ''">#{reason},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+
+    <!-- 审批：仅待审批状态可流转 -->
+    <update id="auditExpense" parameterType="Expense">
+        update biz_expense
+        set status = #{status},
+            audit_remark = #{auditRemark},
+            audit_by = #{auditBy},
+            audit_time = sysdate(),
+            update_by = #{auditBy},
+            update_time = sysdate()
+        where expense_id = #{id} and status = '0'
+    </update>
+
+    <delete id="deleteExpenseByIds" parameterType="String">
+        delete from biz_expense where expense_id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.StockMoveMapper">
+
+    <resultMap type="StockMove" id="StockMoveResult">
+        <id     property="id"           column="move_id"        />
+        <result property="productName"  column="product_name"   />
+        <result property="warehouse"    column="warehouse"       />
+        <result property="moveType"     column="move_type"       />
+        <result property="quantity"     column="quantity"        />
+        <result property="balanceAfter" column="balance_after"   />
+        <result property="sourceType"   column="source_type"    />
+        <result property="sourceCode"   column="source_code"    />
+        <result property="remark"       column="remark"          />
+        <result property="createBy"     column="create_by"       />
+        <result property="createTime"   column="create_time"     />
+    </resultMap>
+
+    <sql id="selectStockMoveVo">
+        select move_id, product_name, warehouse, move_type, quantity, balance_after, source_type, source_code, remark, create_by, create_time from biz_stock_move
+    </sql>
+
+    <select id="selectStockMoveList" parameterType="StockMove" resultMap="StockMoveResult">
+        <include refid="selectStockMoveVo"/>
+        <where>
+            <if test="productName != null  and productName != ''">
+                and product_name like concat('%', #{productName}, '%')
+            </if>
+            <if test="warehouse != null  and warehouse != ''">
+                and warehouse = #{warehouse}
+            </if>
+            <if test="moveType != null  and moveType != ''">
+                and move_type = #{moveType}
+            </if>
+            <if test="sourceType != null  and sourceType != ''">
+                and source_type = #{sourceType}
+            </if>
+            <if test="sourceCode != null  and sourceCode != ''">
+                and source_code like concat('%', #{sourceCode}, '%')
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and date_format(create_time,'%Y-%m-%d') &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and date_format(create_time,'%Y-%m-%d') &lt;= #{params.endTime}
+            </if>
+        </where>
+        order by move_id desc
+    </select>
+
+    <insert id="insertStockMove" parameterType="StockMove" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_stock_move(
+            <if test="productName != null and productName != ''">product_name,</if>
+            <if test="warehouse != null and warehouse != ''">warehouse,</if>
+            <if test="moveType != null and moveType != ''">move_type,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="balanceAfter != null">balance_after,</if>
+            <if test="sourceType != null and sourceType != ''">source_type,</if>
+            <if test="sourceCode != null and sourceCode != ''">source_code,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="productName != null and productName != ''">#{productName},</if>
+            <if test="warehouse != null and warehouse != ''">#{warehouse},</if>
+            <if test="moveType != null and moveType != ''">#{moveType},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="balanceAfter != null">#{balanceAfter},</if>
+            <if test="sourceType != null and sourceType != ''">#{sourceType},</if>
+            <if test="sourceCode != null and sourceCode != ''">#{sourceCode},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+
+</mapper>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('员工工作台')" />
+    <style>
+        .punch-card { background:#fff; border-radius:8px; padding:30px; text-align:center;
+                      box-shadow:0 1px 6px rgba(0,0,0,.08); }
+        .punch-time { font-size:40px; font-weight:600; color:#1ab394; margin:10px 0; }
+        .punch-label { color:#888; }
+        .punch-btn { min-width:140px; margin:0 8px; }
+        .status-tag { display:inline-block; padding:4px 12px; border-radius:12px; font-size:13px; margin-left:8px; }
+        .st-normal { background:#e1f5ee; color:#1ab394; }
+        .st-late { background:#fdf3e7; color:#f8ac59; }
+        .st-early { background:#fdf3e7; color:#f8ac59; }
+        .st-absent { background:#faeaea; color:#e74c3c; }
+        .quick-link { display:block; background:#fff; border-radius:6px; padding:18px 20px; margin-bottom:16px;
+                      box-shadow:0 1px 4px rgba(0,0,0,.08); }
+        .quick-link i { font-size:26px; color:#1ab394; }
+        .quick-link .t { font-size:15px; margin-left:10px; font-weight:600; }
+        .quick-link .d { color:#999; font-size:12px; margin-left:10px; }
+    </style>
+</head>
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <div class="row">
+            <div class="col-sm-8">
+                <div class="punch-card">
+                    <div class="punch-label">[[${userName}]]，今天是 [[${today}]]（工作时间 [[${workStart}]] - [[${workEnd}]]）</div>
+                    <div class="punch-time" id="clock">--:--:--</div>
+                    <div>
+                        <button type="button" class="btn btn-success punch-btn" onclick="punch('in')">
+                            <i class="fa fa-sign-in"></i> 上班打卡
+                        </button>
+                        <button type="button" class="btn btn-primary punch-btn" onclick="punch('out')">
+                            <i class="fa fa-sign-out"></i> 下班打卡
+                        </button>
+                    </div>
+                    <div style="margin-top:18px;" th:if="${attendance != null}">
+                        上班：<span th:text="${attendance.checkIn ?: '未打卡'}"></span>
+                        &nbsp;|&nbsp;
+                        下班：<span th:text="${attendance.checkOut ?: '未打卡'}"></span>
+                        <span class="status-tag"
+                              th:classappend="${attendance.status=='0'}?'st-normal':(${attendance.status=='1'}?'st-late':(${attendance.status=='2'}?'st-early':'st-absent'))"
+                              th:text="${attendance.status=='0'}?'正常':(${attendance.status=='1'}?'迟到':(${attendance.status=='2'}?'早退':'缺勤'))">
+                        </span>
+                    </div>
+                    <div style="margin-top:18px;color:#aaa;" th:if="${attendance == null}">今日尚未打卡</div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <a class="quick-link" href="javascript:;" onclick="$.modal.open('提交请假', '/portal/leave/add')">
+                    <i class="fa fa-envelope-o"></i><span class="t">提交请假</span>
+                    <div class="d">事假 / 病假 / 年假 / 调休，提交后等待审批</div>
+                </a>
+                <a class="quick-link" th:href="@{/portal/leave}">
+                    <i class="fa fa-calendar-check-o"></i><span class="t">我的请假</span>
+                    <div class="d">查看审批进度，已通过的假期可销假</div>
+                </a>
+                <a class="quick-link" th:href="@{/portal/report}">
+                    <i class="fa fa-file-text-o"></i><span class="t">业务汇报</span>
+                    <div class="d">提交日报 / 周报 / 月报</div>
+                </a>
+                <div class="quick-link" th:if="${not #lists.isEmpty(quotas)}">
+                    <i class="fa fa-pie-chart"></i><span class="t">我的假期余额（[[${#lists.size(quotas)}]]项）</span>
+                    <div class="d" style="margin-top:8px;">
+                        <span th:each="q : ${quotas}" style="display:inline-block;margin:2px 6px 2px 0;"
+                              th:classappend="${q.remainDays <= 0} ? 'label label-danger' : 'label label-success'"
+                              th:text="${{q.leaveType=='1'?'事假':(q.leaveType=='2'?'病假':(q.leaveType=='3'?'年假':'调休'))}} + ' ' + ${q.remainDays} + '/' + ${q.quotaDays}">
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var ctx = [[@{/}]];
+
+        function tick() {
+            var d = new Date();
+            function p(n) { return n < 10 ? '0' + n : n; }
+            $("#clock").text(p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()));
+        }
+        setInterval(tick, 1000);
+        tick();
+
+        function punch(type) {
+            $.modal.confirm(type === 'in' ? '确认上班打卡？' : '确认下班打卡？', function() {
+                $.post(ctx + "portal/punch", { type: type }, function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess(result.msg);
+                        setTimeout(function() { location.reload(); }, 1200);
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

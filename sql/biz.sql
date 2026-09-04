@@ -402,3 +402,56 @@ select concat(m.menu_name,'导出'), m.menu_id, 5, 'F', '0', concat(substring_in
 from sys_menu m
 where m.menu_type='C' and m.perms like 'biz:%:view' and m.parent_id in (
   select menu_id from (select menu_id from sys_menu where menu_name in ('客户合同产品','进销存管理','人事考勤')) t);
+
+-- ----------------------------
+-- 员工工作台（打卡/请销假/业务汇报）
+-- ----------------------------
+drop table if exists biz_report;
+create table biz_report (
+  report_id       bigint(20)      not null auto_increment    comment '主键ID',
+  report_type     char(1)         default '1'                comment '汇报类型（1日报 2周报 3月报）',
+  title           varchar(200)    default ''                 comment '标题',
+  content         text                                       comment '汇报内容',
+  report_date     varchar(20)     default ''                 comment '汇报日期',
+  create_by       varchar(64)     default ''                 comment '创建者',
+  create_time     datetime                                   comment '创建时间',
+  update_by       varchar(64)     default ''                 comment '更新者',
+  update_time     datetime                                   comment '更新时间',
+  remark          varchar(500)    default null               comment '备注',
+  primary key (report_id)
+) engine=innodb auto_increment=1 comment = '业务汇报表';
+
+insert into sys_dict_type (dict_name, dict_type, status, create_by, create_time, remark)
+values ('汇报类型', 'biz_report_type', '0', 'admin', sysdate(), '业务汇报类型');
+insert into sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by, create_time)
+values (1, '日报', '1', 'biz_report_type', '0', 'admin', sysdate()),
+       (2, '周报', '2', 'biz_report_type', '0', 'admin', sysdate()),
+       (3, '月报', '3', 'biz_report_type', '0', 'admin', sysdate());
+
+insert into sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by, create_time)
+values (4, '已销假', '3', 'biz_leave_status', '0', 'admin', sysdate());
+
+insert into sys_menu (menu_name, parent_id, order_num, url, menu_type, visible, perms, icon, create_by, create_time)
+values ('员工工作台', '0', '2', '#', 'M', '0', '', 'fa fa-rocket', 'admin', sysdate());
+set @portal = @@identity;
+
+insert into sys_menu (menu_name, parent_id, order_num, url, menu_type, visible, perms, icon, create_by, create_time)
+values ('我的打卡', @portal, '1', 'portal', 'C', '0', 'portal:index:view', 'fa fa-clock-o', 'admin', sysdate());
+set @m1 = @@identity;
+insert into sys_menu (menu_name, parent_id, order_num, menu_type, visible, perms, create_by, create_time)
+values ('打卡操作', @m1, '1', 'F', '0', 'portal:punch:add', 'admin', sysdate());
+
+insert into sys_menu (menu_name, parent_id, order_num, url, menu_type, visible, perms, icon, create_by, create_time)
+values ('我的请假', @portal, '2', 'portal/leave', 'C', '0', 'portal:leave:view', 'fa fa-calendar', 'admin', sysdate());
+set @m2 = @@identity;
+insert into sys_menu (menu_name, parent_id, order_num, menu_type, visible, perms, create_by, create_time)
+values ('请假销假', @m2, '1', 'F', '0', 'portal:leave:add', 'admin', sysdate());
+
+insert into sys_menu (menu_name, parent_id, order_num, url, menu_type, visible, perms, icon, create_by, create_time)
+values ('业务汇报', @portal, '3', 'portal/report', 'C', '0', 'portal:report:view', 'fa fa-file-text-o', 'admin', sysdate());
+set @m3 = @@identity;
+insert into sys_menu (menu_name, parent_id, order_num, menu_type, visible, perms, create_by, create_time)
+values ('汇报提交', @m3, '1', 'F', '0', 'portal:report:add', 'admin', sysdate());
+
+insert into sys_role_menu (role_id, menu_id)
+select 2, menu_id from sys_menu where perms like 'portal:%' or menu_name='员工工作台';

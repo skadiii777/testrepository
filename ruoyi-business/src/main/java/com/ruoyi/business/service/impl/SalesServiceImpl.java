@@ -41,7 +41,7 @@ public class SalesServiceImpl implements ISalesService
         int rows = salesMapper.insertSales(sales);
         if ("1".equals(sales.getStatus()) && rows > 0)
         {
-            stockService.changeStock(sales.getProductName(), "默认仓库", -sales.getQuantity());
+            stockService.changeStock(sales.getProductName(), "默认仓库", -sales.getQuantity(), "sales", sales.getSalesCode());
         }
         return rows;
     }

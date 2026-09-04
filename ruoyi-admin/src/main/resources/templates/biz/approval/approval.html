@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:include="include :: header('审批中心')" />
+</head>
+<body class="gray-bg">
+    <div class="container-div">
+        <div class="row">
+            <div class="col-sm-12">
+                <!-- 待办角标 -->
+                <div class="row" style="margin-bottom:15px;">
+                    <div class="col-sm-4">
+                        <a href="javascript:;" class="btn btn-warning btn-block" style="padding:12px;"
+                           onclick="switchTab('leave')">
+                            <i class="fa fa-envelope-o"></i> 请假待审批
+                            <span class="badge" id="badge-leave" style="background:#e74c3c;font-size:14px;">0</span>
+                        </a>
+                    </div>
+                    <div class="col-sm-4">
+                        <a href="javascript:;" class="btn btn-info btn-block" style="padding:12px;" onclick="switchTab('expense')">
+                            <i class="fa fa-money"></i> 报销待审批
+                            <span class="badge" id="badge-expense" style="background:#e74c3c;font-size:14px;">0</span>
+                        </a>
+                    </div>
+                    <div class="col-sm-4">
+                        <a href="javascript:;" class="btn btn-default btn-block disabled" style="padding:12px;">
+                            <i class="fa fa-edit"></i> 补卡待审批（即将上线）
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 报销待办 -->
+            <div class="col-sm-12" id="tab-expense" style="display:none;">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>待审批报销</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="col-sm-12 select-table table-striped">
+                            <table id="expense-table"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 请假待办 -->
+            <div class="col-sm-12" id="tab-leave">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>待审批请假</h5>
+                    </div>
+                    <div class="ibox-content">
+                        <div class="col-sm-12 select-table table-striped">
+                            <table id="bootstrap-table"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <th:block th:include="include :: footer" />
+    <script th:inline="javascript">
+        var types = [[${@dict.getType('biz_leave_type')}]];
+        var prefix = ctx + "biz/approval";
+
+        $(function() {
+            loadPending();
+            var options = {
+                url: prefix + "/leaveList",
+                modalName: "请假审批",
+                columns: [{
+                    field: 'id',
+                    title: '编号'
+                },
+                {
+                    field: 'empName',
+                    title: '申请人'
+                },
+                {
+                    field: 'leaveType',
+                    title: '类型',
+                    align: 'center',
+                    formatter: function(value) { return $.table.selectDictLabel(types, value); }
+                },
+                {
+                    field: 'startDate',
+                    title: '开始'
+                },
+                {
+                    field: 'endDate',
+                    title: '结束'
+                },
+                {
+                    field: 'days',
+                    title: '天数',
+                    align: 'center'
+                },
+                {
+                    field: 'reason',
+                    title: '事由'
+                },
+                {
+                    field: 'createTime',
+                    title: '提交时间'
+                },
+                {
+                    title: '操作',
+                    align: 'center',
+                    formatter: function(value, row) {
+                        return '<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="audit(\'' + row.id + '\', \'1\')"><i class="fa fa-check"></i>通过</a> ' +
+                               '<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="audit(\'' + row.id + '\', \'2\')"><i class="fa fa-times"></i>驳回</a>';
+                    }
+                }]
+            };
+            $.table.init(options);
+        });
+
+        function loadPending() {
+            $.post(prefix + "/pending", {}, function(result) {
+                $("#badge-leave").text(result.data.leaveCount);
+                $("#badge-expense").text(result.data.expenseCount);
+            }, "json");
+        }
+
+        function audit(id, status) {
+            var msg = status === '1' ? '确认通过该请假申请吗？' : '确认驳回该请假申请吗？';
+            $.modal.confirm(msg, function() {
+                $.post(ctx + "biz/leave/audit", { id: id, status: status,
+                        auditRemark: status === '1' ? '审批通过' : '审批驳回' }, function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess("操作成功");
+                        $.table.refresh();
+                        loadPending();
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                });
+            });
+        }
+
+        var expenseTypes = [[${@dict.getType('biz_expense_type')}]];
+
+        function switchTab(name) {
+            if (name === 'leave') {
+                $("#tab-expense").hide();
+                $("#tab-leave").show();
+                $.table.refresh();
+                loadPending();
+            } else if (name === 'expense') {
+                $("#tab-leave").hide();
+                $("#tab-expense").show();
+                $.post(prefix + "/expenseList", {}, function(result) {
+                    var rows = result.rows || [];
+                    var html = '';
+                    for (var i = 0; i < rows.length; i++) {
+                        var r = rows[i];
+                        var label = {'1':'差旅','2':'餐费','3':'办公','4':'其他'}[r.category] || r.category;
+                        html += '<tr>' +
+                            '<td>' + r.id + '</td>' +
+                            '<td>' + (r.empName || '') + '</td>' +
+                            '<td>' + label + '</td>' +
+                            '<td style="text-align:right;">' + (r.amount || 0) + '</td>' +
+                            '<td>' + (r.expenseDate || '') + '</td>' +
+                            '<td>' + (r.reason || '') + '</td>' +
+                            '<td>' + (r.createTime || '') + '</td>' +
+                            '<td>' +
+                                '<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="auditExpense(\'' + r.id + '\', \'1\')"><i class="fa fa-check"></i>通过</a> ' +
+                                '<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="auditExpense(\'' + r.id + '\', \'2\')"><i class="fa fa-times"></i>驳回</a>' +
+                            '</td></tr>';
+                    }
+                    $("#expense-table").html(
+                        '<thead><tr><th>编号</th><th>报销人</th><th>类别</th><th>金额</th><th>费用日期</th>' +
+                        '<th>说明</th><th>提交时间</th><th>操作</th></tr></thead><tbody>' + (html || '<tr><td colspan="8">暂无待审批报销</td></tr>') + '</tbody>');
+                    loadPending();
+                }, "json");
+            }
+        }
+
+        function auditExpense(id, status) {
+            var msg = status === '1' ? '确认通过该报销申请吗？' : '确认驳回该报销申请吗？';
+            $.modal.confirm(msg, function() {
+                $.post(ctx + "biz/approval/expenseAudit", { id: id, status: status,
+                        auditRemark: status === '1' ? '审批通过' : '审批驳回' }, function(result) {
+                    if (result.code == web_status.SUCCESS) {
+                        $.modal.msgSuccess("操作成功");
+                        switchTab('expense');
+                    } else {
+                        $.modal.alertError(result.msg);
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

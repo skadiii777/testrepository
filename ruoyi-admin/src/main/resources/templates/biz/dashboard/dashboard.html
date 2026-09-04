@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <th:block th:include="include :: header('数据看板')" />
+    <style>
+        .metric-box { background:#fff; border-radius:6px; padding:18px 20px; margin-bottom:18px;
+                      box-shadow:0 1px 4px rgba(0,0,0,.08); }
+        .metric-box .num { font-size:26px; font-weight:600; color:#1ab394; }
+        .metric-box .label-text { color:#888; font-size:13px; margin-top:4px; }
+        .metric-box i { font-size:30px; opacity:.35; float:right; margin-top:2px; }
+        .chart-panel { background:#fff; border-radius:6px; padding:14px; margin-bottom:18px;
+                       box-shadow:0 1px 4px rgba(0,0,0,.08); }
+        .chart { width:100%; height:300px; }
+    </style>
+</head>
+<body class="gray-bg">
+    <div class="wrapper wrapper-content animated fadeInRight">
+        <!-- 指标卡 -->
+        <div class="row">
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-users text-navy"></i>
+                <div class="num" id="m-customer">--</div><div class="label-text">客户总数</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-cubes text-navy"></i>
+                <div class="num" id="m-product">--</div><div class="label-text">产品总数</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-handshake-o text-navy"></i>
+                <div class="num" id="m-contract">--</div><div class="label-text">合同总数</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-id-card-o text-navy"></i>
+                <div class="num" id="m-employee">--</div><div class="label-text">员工总数</div></div></div>
+        </div>
+        <div class="row">
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-truck text-success"></i>
+                <div class="num" id="m-purchase">--</div><div class="label-text">采购单数</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-shopping-cart text-success"></i>
+                <div class="num" id="m-sales">--</div><div class="label-text">销售单数</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-envelope-o text-danger"></i>
+                <div class="num" id="m-leave">--</div><div class="label-text">待审批请假</div></div></div>
+            <div class="col-sm-3"><div class="metric-box"><i class="fa fa-warning text-danger"></i>
+                <div class="num" id="m-lowstock">--</div><div class="label-text">库存预警项</div></div></div>
+        </div>
+
+        <!-- 图表 -->
+        <div class="row">
+            <div class="col-sm-8">
+                <div class="chart-panel">
+                    <div class="chart" id="chart-trend"></div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="chart-panel">
+                    <div class="chart" id="chart-top"></div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="chart-panel">
+                    <div class="chart" id="chart-contract"></div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="chart-panel">
+                    <div class="chart" id="chart-leave"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:include="include :: footer" />
+    <script th:src="@{/ajax/libs/report/echarts/echarts-all.min.js}"></script>
+    <script th:inline="javascript">
+        var ctx = [[@{/}]];
+
+        function post(url, cb) {
+            $.post(ctx + url, {}, function(result) { cb(result.data); }, "json");
+        }
+
+        var CONTRACT_LABELS = {'0':'草稿','1':'执行中','2':'已完成','3':'已终止'};
+        var LEAVE_LABELS = {'0':'待审批','1':'已通过','2':'已驳回'};
+
+        $(function () {
+            // 指标卡
+            post("biz/dashboard/panel", function(d) {
+                $("#m-customer").text(d.customerCount);
+                $("#m-product").text(d.productCount);
+                $("#m-contract").text(d.contractCount);
+                $("#m-employee").text(d.employeeCount);
+                $("#m-purchase").text(d.purchaseCount);
+                $("#m-sales").text(d.salesCount);
+                $("#m-leave").text(d.leavePending);
+                $("#m-lowstock").text(d.lowStockCount);
+            });
+
+            // 趋势图
+            post("biz/dashboard/trend", function(d) {
+                var chart = echarts.init(document.getElementById("chart-trend"));
+                chart.setOption({
+                    title: { text: "近7日销售/采购金额趋势", left: "center", textStyle: {fontSize: 14} },
+                    tooltip: { trigger: "axis" },
+                    legend: { data: ["销售金额", "采购金额"], top: 28 },
+                    grid: { top: 60, left: 50, right: 30, bottom: 30 },
+                    xAxis: { type: "category", data: d.dates },
+                    yAxis: { type: "value" },
+                    series: [
+                        { name: "销售金额", type: "line", smooth: true, data: d.sales,
+                          itemStyle: {color: "#1ab394"}, areaStyle: {opacity: 0.12} },
+                        { name: "采购金额", type: "line", smooth: true, data: d.purchase,
+                          itemStyle: {color: "#23c6c8"}, areaStyle: {opacity: 0.12} }
+                    ]
+                });
+            });
+
+            // 销售Top5
+            post("biz/dashboard/productTop", function(rows) {
+                var chart = echarts.init(document.getElementById("chart-top"));
+                chart.setOption({
+                    title: { text: "产品销售Top5（数量）", left: "center", textStyle: {fontSize: 14} },
+                    tooltip: { trigger: "axis" },
+                    grid: { top: 50, left: 90, right: 30, bottom: 30 },
+                    xAxis: { type: "value" },
+                    yAxis: { type: "category",
+                             data: rows.map(function(r){ return r.productName; }).reverse() },
+                    series: [{ type: "bar", barWidth: 16,
+                               data: rows.map(function(r){ return r.totalQty; }).reverse(),
+                               itemStyle: {color: "#1ab394"} }]
+                });
+            });
+
+            // 合同状态分布
+            post("biz/dashboard/status", function(d) {
+                var c = echarts.init(document.getElementById("chart-contract"));
+                c.setOption({
+                    title: { text: "合同状态分布", left: "center", textStyle: {fontSize: 14} },
+                    tooltip: { trigger: "item" },
+                    series: [{ type: "pie", radius: ["35%", "60%"], center: ["50%", "56%"],
+                        data: d.contract.map(function(r){
+                            return {name: CONTRACT_LABELS[r.status] || r.status, value: r.cnt}; }) }]
+                });
+                var l = echarts.init(document.getElementById("chart-leave"));
+                l.setOption({
+                    title: { text: "请假审批状态分布", left: "center", textStyle: {fontSize: 14} },
+                    tooltip: { trigger: "item" },
+                    series: [{ type: "pie", radius: ["35%", "60%"], center: ["50%", "56%"],
+                        data: d.leave.map(function(r){
+                            return {name: LEAVE_LABELS[r.status] || r.status, value: r.cnt}; }) }]
+                });
+            });
+
+            $(window).resize(function() {
+                $("div[id^=chart-]").each(function() {
+                    echarts.init(this).resize();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

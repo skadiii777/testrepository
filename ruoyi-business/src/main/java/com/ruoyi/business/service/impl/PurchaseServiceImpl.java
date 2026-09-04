@@ -42,7 +42,7 @@ public class PurchaseServiceImpl implements IPurchaseService
         int rows = purchaseMapper.insertPurchase(purchase);
         if ("1".equals(purchase.getStatus()))
         {
-            stockService.changeStock(purchase.getProductName(), "默认仓库", purchase.getQuantity());
+            stockService.changeStock(purchase.getProductName(), "默认仓库", purchase.getQuantity(), "purchase", purchase.getPurchaseCode());
         }
         return rows;
     }

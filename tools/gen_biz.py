@@ -210,6 +210,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="{Cls}" id="{Cls}Result">
         <id     property="id"           column="{key}_id"       />
 {RESULTMAP}
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="select{Cls}Vo">
@@ -594,13 +599,13 @@ def gen_htmls(key, e):
     for (n, t, label, sq, q, r, d) in e['fields']:
         if d:
             search.append('                            <li>\n                                %s：<select name="%s" th:with="type=${@dict.getType(\'%s\')}">\n                                    <option value="">所有</option>\n                                    <option th:each="dict : ${type}" th:text="${dict.dictLabel}" th:value="${dict.dictValue}"></option>\n                                </select>\n                            </li>' % (label, n, d))
-            dictvars.append("        var %s = [[${@dict.getType('%s')}]];" % (n, d))
+            dictvars.append("        var %sDict = [[${@dict.getType('%s')}]];" % (n, d))
             columns.append('''                {
                     field: '%s',
                     title: '%s',
                     align: 'center',
                     formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(%s, value);
+                        return $.table.selectDictLabel(%sDict, value);
                     }
                 },''' % (n, label, n))
         elif q:

@@ -61,7 +61,7 @@
     <script th:inline="javascript">
         var editFlag = [[${ @permission.hasPermi('biz:purchase:edit') }]];
         var removeFlag = [[${ @permission.hasPermi('biz:purchase:remove') }]];
-        var status = [[${@dict.getType('biz_inout_status')}]];
+        var statusDict = [[${@dict.getType('biz_inout_status')}]];
         var prefix = ctx + "biz/purchase";
 
         $(function() {
@@ -112,7 +112,7 @@
                     title: '入库状态',
                     align: 'center',
                     formatter: function(value, row, index) {
-                        return $.table.selectDictLabel(status, value);
+                        return $.table.selectDictLabel(statusDict, value);
                     }
                 },
                 {

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.ReportMapper">
+
+    <resultMap type="Report" id="ReportResult">
+        <id     property="id"          column="report_id"    />
+        <result property="reportType"  column="report_type"  />
+        <result property="title"       column="title"        />
+        <result property="content"     column="content"      />
+        <result property="reportDate"  column="report_date"  />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"  column="create_time"  />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"  column="update_time"  />
+        <result property="remark"      column="remark"       />
+    </resultMap>
+
+    <sql id="selectReportVo">
+        select report_id, report_type, title, content, report_date, create_by, create_time, update_by, update_time, remark from biz_report
+    </sql>
+
+    <select id="selectReportList" parameterType="Report" resultMap="ReportResult">
+        <include refid="selectReportVo"/>
+        <where>
+            <if test="reportType != null  and reportType != ''">
+                and report_type = #{reportType}
+            </if>
+            <if test="title != null  and title != ''">
+                and title like concat('%', #{title}, '%')
+            </if>
+            <if test="reportDate != null  and reportDate != ''">
+                and report_date = #{reportDate}
+            </if>
+            <if test="params.createBy != null  and params.createBy != ''">
+                and create_by = #{params.createBy}
+            </if>
+        </where>
+        order by report_id desc
+    </select>
+
+    <select id="selectReportById" parameterType="Long" resultMap="ReportResult">
+        <include refid="selectReportVo"/>
+        where report_id = #{id}
+    </select>
+
+    <insert id="insertReport" parameterType="Report" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_report(
+            <if test="reportType != null and reportType != ''">report_type,</if>
+            <if test="title != null and title != ''">title,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="reportDate != null and reportDate != ''">report_date,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        )values(
+            <if test="reportType != null and reportType != ''">#{reportType},</if>
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="reportDate != null and reportDate != ''">#{reportDate},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        )
+    </insert>
+
+    <update id="updateReport" parameterType="Report">
+        update biz_report
+        <set>
+            <if test="reportType != null and reportType != ''">report_type = #{reportType},</if>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="reportDate != null and reportDate != ''">report_date = #{reportDate},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where report_id = #{id}
+    </update>
+
+    <delete id="deleteReportByIds" parameterType="String">
+        delete from biz_report where report_id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
