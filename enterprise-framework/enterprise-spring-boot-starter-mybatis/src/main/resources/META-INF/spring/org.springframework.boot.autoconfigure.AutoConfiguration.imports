@@ -1,0 +1,3 @@
+com.enterprise.framework.datasource.config.YudaoDataSourceAutoConfiguration
+com.enterprise.framework.mybatis.config.YudaoMybatisAutoConfiguration
+com.enterprise.framework.translate.config.YudaoTranslateAutoConfiguration

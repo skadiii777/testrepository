@@ -1,0 +1,2 @@
+com.enterprise.framework.quartz.config.YudaoQuartzAutoConfiguration
+com.enterprise.framework.quartz.config.YudaoAsyncAutoConfiguration

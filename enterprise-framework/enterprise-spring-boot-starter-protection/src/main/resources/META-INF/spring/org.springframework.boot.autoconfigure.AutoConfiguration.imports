@@ -1,0 +1,4 @@
+com.enterprise.framework.idempotent.config.YudaoIdempotentConfiguration
+com.enterprise.framework.lock4j.config.YudaoLock4jConfiguration
+com.enterprise.framework.ratelimiter.config.YudaoRateLimiterConfiguration
+com.enterprise.framework.signature.config.YudaoApiSignatureAutoConfiguration

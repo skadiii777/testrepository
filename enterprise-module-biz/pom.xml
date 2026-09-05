@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.enterprise</groupId>
+        <artifactId>enterprise-platform</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>enterprise-module-biz</artifactId>
+    <packaging>jar</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>
+        业务模块：客户/产品/合同/供应商（CRM）、采购/销售/库存/流水（进销存）、
+        员工/考勤/请假/假期余额/汇报/报销（人事）、审批中心、数据看板
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-module-system</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <!-- Web -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- DB -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+
+        <!-- 业务组件 -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-biz-tenant</artifactId>
+        </dependency>
+
+        <!-- Excel 导出 -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-excel</artifactId>
+        </dependency>
+
+        <!-- Test 测试相关 -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

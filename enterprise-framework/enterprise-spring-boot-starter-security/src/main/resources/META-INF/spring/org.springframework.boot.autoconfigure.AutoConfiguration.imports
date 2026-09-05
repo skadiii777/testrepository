@@ -1,0 +1,3 @@
+com.enterprise.framework.security.config.YudaoSecurityAutoConfiguration
+com.enterprise.framework.security.config.YudaoWebSecurityConfigurerAdapter
+com.enterprise.framework.operatelog.config.YudaoOperateLogConfiguration

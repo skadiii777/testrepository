@@ -1,0 +1,2 @@
+com.enterprise.framework.tracer.config.YudaoTracerAutoConfiguration
+com.enterprise.framework.tracer.config.YudaoMetricsAutoConfiguration

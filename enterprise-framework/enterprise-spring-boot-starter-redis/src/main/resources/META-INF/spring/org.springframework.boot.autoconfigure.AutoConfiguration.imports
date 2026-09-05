@@ -1,0 +1,2 @@
+com.enterprise.framework.redis.config.YudaoRedisAutoConfiguration
+com.enterprise.framework.redis.config.YudaoCacheAutoConfiguration
