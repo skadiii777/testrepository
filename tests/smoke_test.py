@@ -587,6 +587,73 @@ def test_file_upload():
         jdelete("/portal/expense-withdraw", params={"id": eid})
 
 
+# ---------------- 15. BPM 工作流引擎（模型部署 -> OA 请假 -> 审批 -> 状态流转） ----------------
+BPMN_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xmlns:flowable="http://flowable.org/bpmn"   targetNamespace="http://flowable.org/bpmn"   typeLanguage="http://www.w3.org/2001/XMLSchema"   expressionLanguage="http://www.w3.org/1999/XPath">
+  <process id="oa_leave" name="OA请假示例" isExecutable="true">
+    <startEvent id="start" name="开始"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="approve"/>
+    <userTask id="approve" name="审批" flowable:candidateStrategy="30" flowable:candidateParam="1"/>
+    <sequenceFlow id="f2" sourceRef="approve" targetRef="end"/>
+    <endEvent id="end" name="结束"/>
+  </process>
+</definitions>"""
+
+
+def test_bpm():
+    # 1) 创建 + 部署流程模型
+    r = jpost("/bpm/model/create", dict(key="oa_leave", name="OA请假示例", bpmnXml=BPMN_XML,
+              type=10, formType=20, visible=True, description="审批中心示例流程",
+              formCustomCreatePath="/bpm/oa/leave/create", formCustomViewPath="/bpm/oa/leave/detail",
+              managerUserIds=[1]))
+    body = r.json()
+    exists = "已经存在" in body.get("msg", "")
+    check("BPM-模型创建(或已存在)", body.get("code") == 0 or exists, r.text[:150])
+    r = jget("/bpm/model/list", params={"name": "OA请假示例"})
+    rows = r.json().get("data", [])
+    check("BPM-模型已创建", len(rows) >= 1, str(rows[:1]))
+    model_id = rows[0]["id"] if rows else None
+    # 已存在则更新 BPMN 内容（保证最新 XML）
+    if exists and model_id:
+        r = jput("/bpm/model/update", dict(id=model_id, key="oa_leave", name="OA请假示例",
+                  bpmnXml=BPMN_XML, type=10, formType=20, visible=True,
+                  description="审批中心示例流程", formCustomCreatePath="/bpm/oa/leave/create",
+                  formCustomViewPath="/bpm/oa/leave/detail", managerUserIds=[1]))
+        check("BPM-模型更新XML", r.json().get("code") == 0, r.text[:150])
+    # 若未部署过，部署
+    r = jget("/bpm/process-definition/simple-list")
+    deployed = [d for d in r.json().get("data", []) if d.get("key") == "oa_leave"]
+    if not deployed:
+        r = jpost("/bpm/model/deploy", params={"id": model_id})
+        check("BPM-模型部署", r.json().get("code") == 0, r.text[:150])
+        r = jget("/bpm/process-definition/simple-list")
+        deployed = [d for d in r.json().get("data", []) if d.get("key") == "oa_leave"]
+    check("BPM-流程定义存在", len(deployed) >= 1, str(deployed[:1]))
+
+    # 2) 发起 OA 请假（走工作流）
+    r = jpost("/bpm/oa/leave/create", dict(startTime="2026-09-10 09:00:00",
+              endTime="2026-09-11 18:00:00", type=1, reason="BPM流程测试"))
+    check("BPM-OA请假发起", r.json().get("code") == 0, r.text[:150])
+    r = jget("/bpm/oa/leave/page", params={"pageNo": 1, "pageSize": 10})
+    rows = r.json().get("data", {}).get("list", [])
+    mine = [x for x in rows if x.get("reason") == "BPM流程测试"]
+    check("BPM-OA请假单状态=审批中", mine and mine[0].get("status") == 1, str(mine[:1]))
+    oid = mine[0]["id"] if mine else None
+    proc_id = mine[0].get("processInstanceId") if mine else None
+
+    # 3) 管理员审批通过
+    r = jget("/bpm/task/todo-page", params={"pageNo": 1, "pageSize": 10})
+    tasks = r.json().get("data", {}).get("list", [])
+    task = [t for t in tasks if t.get("processInstanceId") == proc_id]
+    check("BPM-待办任务存在", len(task) == 1, str(task[:1]))
+    if task:
+        r = jput("/bpm/task/approve", dict(id=task[0]["id"], reason="同意"))
+        check("BPM-审批通过", r.json().get("code") == 0, r.text[:150])
+        r = jget("/bpm/oa/leave/page", params={"pageNo": 1, "pageSize": 10})
+        rows = [x for x in r.json().get("data", {}).get("list", []) if x.get("id") == oid]
+        check("BPM-请假单状态=已通过(2)", rows and rows[0].get("status") == 2, str(rows[:1]))
+
+
 if __name__ == "__main__":
     test_auth()
     test_crud()
@@ -600,6 +667,7 @@ if __name__ == "__main__":
     test_followup()
     test_digest()
     test_file_upload()
+    test_bpm()
     test_system()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")

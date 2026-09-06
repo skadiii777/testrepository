@@ -17,6 +17,7 @@
         <module>enterprise-module-infra</module>
         <!-- 企业业务模块 -->
         <module>enterprise-module-biz</module>
+        <module>enterprise-module-bpm</module>
 <!--        <module>enterprise-module-member</module>-->
 <!--        <module>enterprise-module-bpm</module>-->
 <!--        <module>enterprise-module-report</module>-->

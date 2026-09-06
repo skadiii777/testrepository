@@ -58,3 +58,6 @@ application-my.yaml
 *.log
 perm*.json
 .mimosa/
+
+# BPM 本地调试
+server.log
