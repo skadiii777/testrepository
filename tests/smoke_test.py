@@ -559,6 +559,34 @@ def test_digest():
     check("周报-站内信已落库", len(hit) >= 1, r.text[:200])
 
 
+# ---------------- 14. 文件上传 + 报销发票附件 ----------------
+def test_file_upload():
+    # 1) 上传一张 1x1 PNG 到 /infra/file/upload
+    png = bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6260000000060005' + '27de4bb00000000049454e44ae426082')
+    r = jpost("/infra/file/upload",
+              files={"file": ("invoice-test.png", png, "image/png")},
+              data={"path": "smoke-test"})
+    check("文件-上传成功", r.json().get("code") == 0, r.text[:150])
+    file_url = r.json().get("data", "")
+    check("文件-返回可访问URL", file_url.startswith("http"), file_url[:120])
+    r2 = requests.get(file_url, timeout=10)
+    check("文件-URL可访问且内容一致", r2.status_code == 200 and r2.content[:4] == bytes.fromhex("89504e47"), "HTTP %s" % r2.status_code)
+
+    # 2) 报销单挂发票附件
+    reason_tag = "发票测试%d" % (int(time.time()) % 1000000)
+    r = jpost("/portal/expense-submit", dict(category="3", amount=99.9, expenseDate="2026-09-05",
+                                             reason=reason_tag, invoiceUrl=file_url))
+    check("报销-带发票附件提交", r.json().get("code") == 0, r.text[:150])
+    r = jget("/portal/expense-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if x.get("reason") == reason_tag]
+    check("报销-附件URL已保存", rows and rows[0].get("invoiceUrl") == file_url, str(rows[:1]))
+    eid = rows[0]["id"] if rows else None
+
+    # 清理
+    if eid:
+        jdelete("/portal/expense-withdraw", params={"id": eid})
+
+
 if __name__ == "__main__":
     test_auth()
     test_crud()
@@ -571,6 +599,7 @@ if __name__ == "__main__":
     test_overtime()
     test_followup()
     test_digest()
+    test_file_upload()
     test_system()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")

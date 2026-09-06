@@ -37,6 +37,8 @@ public class ExpenseDO extends TenantBaseDO {
     private String expenseDate;
     /**费用说明*/
     private String reason;
+    /**发票附件URL*/
+    private String invoiceUrl;
     /**审批状态*/
     private String status;
     /**审批意见*/

@@ -145,6 +145,7 @@ F['expense'] = dict(cn='费用报销', vname='Expense', audit=True, fields=[
     ('amount', 'number', '金额', dict(required=True, prec=2)),
     ('expenseDate', 'date', '费用日期', dict(search=True, required=True)),
     ('reason', 'textarea', '费用说明', dict()),
+    ('invoiceUrl', 'upload', '发票照片', dict()),
     ('status', 'dict', '审批状态', dict(d='BIZ_EXPENSE_STATUS', search=True)),
 ])
 
@@ -260,6 +261,10 @@ def form_field(n, kind, label, opt):
           <el-date-picker v-model="formData.%s" value-format="YYYY-MM-DD HH:mm:ss" type="datetime"
             placeholder="请选择%s" class="!w-1/1" />
         </el-form-item>''' % (label, n, n, label))
+    if kind == 'upload':
+        return ('''        <el-form-item label="%s" prop="%s">
+          <UploadImg v-model="formData.%s" :limit="1" />
+        </el-form-item>''' % (label, n, n))
     if kind == 'number':
         prec = opt.get('prec', 2)
         return ('''        <el-form-item label="%s" prop="%s">

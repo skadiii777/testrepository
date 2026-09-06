@@ -131,6 +131,7 @@ E['expense'] = dict(cn='费用报销', table='biz_expense', pkg='expense', perm=
             ('amount','BigDecimal','金额','decimal(12,2)',None,True,None),
             ('expenseDate','String','费用发生日期','varchar(20)','eq',True,None),
             ('reason','String','费用说明','varchar(500)',None,False,None),
+            ('invoiceUrl','String','发票附件URL','varchar(512)',None,False,None),
             ('status','String','审批状态','char(1)','eq',False,'biz_expense_status'),
             ('auditRemark','String','审批意见','varchar(500)',None,False,None),
             ('auditBy','String','审批人','varchar(64)',None,False,None),

@@ -29,6 +29,9 @@ public class ExpenseSaveReqVO {
     @Schema(description = "费用说明")
     
     private String reason;
+
+    @Schema(description = "发票附件URL")
+    private String invoiceUrl;
     @Schema(description = "审批状态")
     
     private String status;

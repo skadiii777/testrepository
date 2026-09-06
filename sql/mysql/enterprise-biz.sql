@@ -296,6 +296,7 @@ CREATE TABLE biz_expense (
   `amount`  decimal(12,2)  DEFAULT NULL  COMMENT '金额',
   `expense_date`  varchar(20)  DEFAULT NULL  COMMENT '费用发生日期',
   `reason`  varchar(500)  DEFAULT NULL  COMMENT '费用说明',
+  `invoice_url`  varchar(512)  DEFAULT NULL  COMMENT '发票附件URL',
   `status`  char(1)  DEFAULT NULL  COMMENT '审批状态',
   `audit_remark`  varchar(500)  DEFAULT NULL  COMMENT '审批意见',
   `audit_by`  varchar(64)  DEFAULT NULL  COMMENT '审批人',
