@@ -29,6 +29,8 @@ public class LeaveRespVO {
     private String status;
     @Schema(description = "审批意见")
     private String remark;
+    @Schema(description = "流程实例编号（BPM）")
+    private String processInstanceId;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

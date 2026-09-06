@@ -28,6 +28,10 @@ public class ExpenseRespVO {
     private String invoiceUrl;
     @Schema(description = "审批状态")
     private String status;
+
+    @Schema(description = "流程实例编号（BPM）")
+    private String processInstanceId;
+
     @Schema(description = "审批意见")
     private String auditRemark;
     @Schema(description = "审批人")

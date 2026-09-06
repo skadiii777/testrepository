@@ -654,8 +654,284 @@ def test_bpm():
         check("BPM-请假单状态=已通过(2)", rows and rows[0].get("status") == 2, str(rows[:1]))
 
 
+# ---------------- 16. 请假接入 Flowable（biz_leave 流程模型 -> 发起 -> 任务审批 -> 状态回调） ----------------
+LEAVE_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xmlns:flowable="http://flowable.org/bpmn"   targetNamespace="http://flowable.org/bpmn"   typeLanguage="http://www.w3.org/2001/XMLSchema"   expressionLanguage="http://www.w3.org/1999/XPath">
+  <process id="biz_leave" name="请假审批流程" isExecutable="true">
+    <startEvent id="start" name="发起"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="mgr"/>
+    <userTask id="mgr" name="部门经理审批" flowable:candidateStrategy="30" flowable:candidateParam="1"/>
+    <sequenceFlow id="f2" sourceRef="mgr" targetRef="end"/>
+    <endEvent id="end" name="结束"/>
+  </process>
+</definitions>"""
+
+
+def deploy_biz_leave_model():
+    """部署（或更新）biz_leave 流程模型，幂等"""
+    r = jpost("/bpm/model/create", dict(key="biz_leave", name="请假审批流程", bpmnXml=LEAVE_BPMN,
+              type=10, formType=20, visible=True, description="业务请假：审批通过自动扣余额",
+              formCustomCreatePath="/portal/leave", formCustomViewPath="/portal/leave",
+              managerUserIds=[1]))
+    body = r.json()
+    exists = "已经存在" in body.get("msg", "")
+    r = jget("/bpm/model/list", params={"name": "请假审批流程"})
+    rows = [m for m in r.json().get("data", []) if m["key"] == "biz_leave"]
+    mid = rows[0]["id"] if rows else None
+    if exists and mid:
+        jput("/bpm/model/update", dict(id=mid, key="biz_leave", name="请假审批流程",
+             bpmnXml=LEAVE_BPMN, type=10, formType=20, visible=True,
+             description="业务请假：审批通过自动扣余额",
+             formCustomCreatePath="/portal/leave", formCustomViewPath="/portal/leave",
+             managerUserIds=[1]))
+    r = jpost("/bpm/model/deploy", params={"id": mid})
+    return r.json().get("code") == 0
+
+
+def test_leave_workflow():
+    ok = deploy_biz_leave_model()
+    check("请假流程-模型部署", ok, "deploy failed")
+
+    # 清残留
+    r = jget("/portal/leave-page", params={"pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        if "流程测试" in (row.get("reason") or ""):
+            jdelete("/biz/leave/delete", params={"id": row["id"]})
+    r = jget("/biz/quota/page", params={"pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/quota/delete", params={"id": row["id"]})
+    jpost("/biz/quota/create", dict(empName="管理员", leaveType="3", year="2026", quotaDays=5))
+
+    # 1) 提交请假 -> 应自动发起 BPM 流程
+    r = jpost("/portal/leave-submit", dict(leaveType="3", startDate="2026-11-10",
+                                           endDate="2026-11-11", days=2, reason="流程测试：走BPM"))
+    check("请假流程-提交", r.json().get("code") == 0, r.text[:150])
+    r = jget("/portal/leave-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if "流程测试" in (x.get("reason") or "")]
+    check("请假流程-流程实例已关联", rows and rows[0].get("processInstanceId"), str(rows[:1]))
+    lid = rows[0]["id"] if rows else None
+    proc_id = rows[0].get("processInstanceId") if rows else None
+
+    # 2) 待办任务出现并审批通过
+    r = jget("/bpm/task/todo-page", params={"pageNo": 1, "pageSize": 20})
+    tasks = [t for t in r.json().get("data", {}).get("list", []) if t.get("processInstanceId") == proc_id]
+    check("请假流程-部门经理待办", len(tasks) == 1, str(tasks[:1]))
+    if tasks:
+        r = jput("/bpm/task/approve", dict(id=tasks[0]["id"], reason="同意（流程测试）"))
+        check("请假流程-BPM审批通过", r.json().get("code") == 0, r.text[:150])
+
+    # 3) 状态事件回调 -> 请假单已通过 + 余额已扣
+    r = jget("/portal/leave-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if x.get("id") == lid]
+    check("请假流程-状态回调为已通过(1)", rows and rows[0].get("status") == "1", str(rows[:1]))
+    r = jget("/biz/quota/page", params={"pageNo": 1, "pageSize": 10})
+    qrows = r.json().get("data", {}).get("list", [])
+    used = float(qrows[0]["usedDays"]) if qrows else -1
+    check("请假流程-余额已扣(2天)", used == 2.0, "usedDays=%s" % used)
+
+    # 清理
+    if lid:
+        jdelete("/biz/leave/delete", params={"id": lid})
+    r = jget("/biz/quota/page", params={"pageNo": 1, "pageSize": 10})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/quota/delete", params={"id": row["id"]})
+
+
+# ---------------- 17. 报销接入 Flowable（biz_expense 流程模型 -> 发起 -> 审批 -> 状态回调） ----------------
+EXPENSE_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xmlns:flowable="http://flowable.org/bpmn"   targetNamespace="http://flowable.org/bpmn"   typeLanguage="http://www.w3.org/2001/XMLSchema"   expressionLanguage="http://www.w3.org/1999/XPath">
+  <process id="biz_expense" name="报销审批流程" isExecutable="true">
+    <startEvent id="start" name="发起"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="mgr"/>
+    <userTask id="mgr" name="经理审批" flowable:candidateStrategy="30" flowable:candidateParam="1"/>
+    <sequenceFlow id="f2" sourceRef="mgr" targetRef="end"/>
+    <endEvent id="end" name="结束"/>
+  </process>
+</definitions>"""
+
+
+def test_expense_workflow():
+    # 部署（或更新）biz_expense 流程模型
+    r = jpost("/bpm/model/create", dict(key="biz_expense", name="报销审批流程", bpmnXml=EXPENSE_BPMN,
+              type=10, formType=20, visible=True, description="业务报销：审批通过自动改状态",
+              formCustomCreatePath="/portal/expense", formCustomViewPath="/portal/expense",
+              managerUserIds=[1]))
+    body = r.json()
+    exists = "已经存在" in body.get("msg", "")
+    check("报销流程-模型创建(或已存在)", body.get("code") == 0 or exists, r.text[:150])
+    r = jget("/bpm/model/list", params={"name": "报销审批流程"})
+    rows = [m for m in r.json().get("data", []) if m["key"] == "biz_expense"]
+    mid = rows[0]["id"] if rows else None
+    if exists and mid:
+        jput("/bpm/model/update", dict(id=mid, key="biz_expense", name="报销审批流程",
+             bpmnXml=EXPENSE_BPMN, type=10, formType=20, visible=True,
+             description="业务报销：审批通过自动改状态",
+             formCustomCreatePath="/portal/expense", formCustomViewPath="/portal/expense",
+             managerUserIds=[1]))
+    if not exists:
+        r = jpost("/bpm/model/deploy", params={"id": mid})
+        check("报销流程-模型部署", r.json().get("code") == 0, r.text[:150])
+
+    # 提交报销 -> 自动发起流程
+    reason_tag = "报销流程测试%d" % (int(time.time()) % 1000000)
+    r = jpost("/portal/expense-submit", dict(category="1", amount=66.6,
+              expenseDate="2026-09-06", reason=reason_tag))
+    check("报销流程-提交", r.json().get("code") == 0, r.text[:150])
+    r = jget("/portal/expense-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if x.get("reason") == reason_tag]
+    check("报销流程-流程实例已关联", rows and rows[0].get("processInstanceId"), str(rows[:1]))
+    eid = rows[0]["id"] if rows else None
+    proc_id = rows[0].get("processInstanceId") if rows else None
+
+    # BPM 待办 -> 审批通过 -> 状态回调
+    r = jget("/bpm/task/todo-page", params={"pageNo": 1, "pageSize": 20})
+    tasks = [t for t in r.json().get("data", {}).get("list", []) if t.get("processInstanceId") == proc_id]
+    check("报销流程-待办任务", len(tasks) == 1, str(tasks[:1]))
+    if tasks:
+        r = jput("/bpm/task/approve", dict(id=tasks[0]["id"], reason="同意（流程测试）"))
+        check("报销流程-审批通过", r.json().get("code") == 0, r.text[:150])
+    r = jget("/portal/expense-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if x.get("reason") == reason_tag]
+    check("报销流程-状态回调已通过(1)", rows and rows[0].get("status") == "1", str(rows[:1]))
+    if eid:
+        jdelete("/portal/expense-withdraw", params={"id": eid})
+
+
+# ---------------- 18. 补卡接入 Flowable（biz_correction 流程模型 -> 发起 -> 审批 -> 回写考勤） ----------------
+CORRECTION_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xmlns:flowable="http://flowable.org/bpmn"   targetNamespace="http://flowable.org/bpmn"   typeLanguage="http://www.w3.org/2001/XMLSchema"   expressionLanguage="http://www.w3.org/1999/XPath">
+  <process id="biz_correction" name="补卡审批流程" isExecutable="true">
+    <startEvent id="start" name="发起"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="mgr"/>
+    <userTask id="mgr" name="经理审批" flowable:candidateStrategy="30" flowable:candidateParam="1"/>
+    <sequenceFlow id="f2" sourceRef="mgr" targetRef="end"/>
+    <endEvent id="end" name="结束"/>
+  </process>
+</definitions>"""
+
+
+def test_correction_workflow():
+    # 部署（或更新）biz_correction 流程模型
+    r = jpost("/bpm/model/create", dict(key="biz_correction", name="补卡审批流程", bpmnXml=CORRECTION_BPMN,
+              type=10, formType=20, visible=True, description="业务补卡：审批通过自动回写考勤",
+              formCustomCreatePath="/portal/correction", formCustomViewPath="/portal/correction",
+              managerUserIds=[1]))
+    body = r.json()
+    exists = "已经存在" in body.get("msg", "")
+    check("补卡流程-模型创建(或已存在)", body.get("code") == 0 or exists, r.text[:150])
+    r = jget("/bpm/model/list", params={"name": "补卡审批流程"})
+    rows = [m for m in r.json().get("data", []) if m["key"] == "biz_correction"]
+    mid = rows[0]["id"] if rows else None
+    if exists and mid:
+        jput("/bpm/model/update", dict(id=mid, key="biz_correction", name="补卡审批流程",
+             bpmnXml=CORRECTION_BPMN, type=10, formType=20, visible=True,
+             description="业务补卡：审批通过自动回写考勤",
+             formCustomCreatePath="/portal/correction", formCustomViewPath="/portal/correction",
+             managerUserIds=[1]))
+    if not exists:
+        r = jpost("/bpm/model/deploy", params={"id": mid})
+        check("补卡流程-模型部署", r.json().get("code") == 0, r.text[:150])
+
+    # 清残留
+    r = jget("/portal/correction-page", params={"pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        if "补卡流程测试" in (row.get("reason") or ""):
+            jdelete("/portal/correction-withdraw", params={"id": row["id"]})
+
+    # 提交补卡 -> 自动发起流程
+    r = jpost("/portal/correction-submit", dict(workDate="2026-09-08", correctType="1",
+              correctTime="08:50", reason="补卡流程测试：外出办事"))
+    check("补卡流程-提交", r.json().get("code") == 0, r.text[:150])
+    r = jget("/portal/correction-page", params={"pageNo": 1, "pageSize": 20})
+    rows = [x for x in r.json().get("data", {}).get("list", []) if "补卡流程测试" in (x.get("reason") or "")]
+    check("补卡流程-流程实例已关联", rows and rows[0].get("processInstanceId"), str(rows[:1]))
+    cid = rows[0]["id"] if rows else None
+    proc_id = rows[0].get("processInstanceId") if rows else None
+
+    # 待办审批 -> 自动回写考勤
+    r = jget("/bpm/task/todo-page", params={"pageNo": 1, "pageSize": 20})
+    tasks = [t for t in r.json().get("data", {}).get("list", []) if t.get("processInstanceId") == proc_id]
+    check("补卡流程-待办任务", len(tasks) == 1, str(tasks[:1]))
+    if tasks:
+        r = jput("/bpm/task/approve", dict(id=tasks[0]["id"], reason="同意（流程测试）"))
+        check("补卡流程-审批通过", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": "2026-09-08", "pageNo": 1, "pageSize": 5})
+    rows = r.json().get("data", {}).get("list", [])
+    check("补卡流程-考勤自动回写", rows and rows[0].get("checkIn") == "08:50" and rows[0].get("status") == "0",
+          str(rows[:1]))
+
+    # 清理
+    if cid:
+        jdelete("/biz/correction/delete", params={"id": cid})
+    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": "2026-09-08", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/attendance/delete", params={"id": row["id"]})
+
+
+def seed_demo_data():
+    """为前端验收准备演示数据（每类 2~3 条，幂等可重复）"""
+    H = {"Authorization": "Bearer " + TOKEN["value"], "tenant-id": "1"}
+    def mk(path, body, uniq):
+        r = jpost("/biz/%s/create" % path, body)
+        msg = r.json().get("msg", "")
+        return "已经存在" not in msg
+    # 客户
+    phones = {"杭州云启科技": "13800001111", "上海恒达贸易": "13800002222", "北京科创能源": "13800003333"}
+    for name, contact, ind in [("杭州云启科技", "张经理", "互联网"), ("上海恒达贸易", "李总", "贸易"), ("北京科创能源", "王工", "能源")]:
+        mk("customer", dict(customerName=name, contactPerson=contact, phone=phones[name], industry=ind, status="0"), name)
+    # 产品
+    for code, name, cat, price in [("P-001", "智能网关 G100", "网络设备", "1299.00"), ("P-002", "无线AP W50", "网络设备", "599.00"), ("P-003", "工控机 I7", "工控设备", "4999.00")]:
+        mk("product", dict(productCode=code, productName=name, category=cat, unit="台", price=price, status="0"), name)
+    # 供应商
+    for name in ("深圳快联电子", "杭州网域科技"):
+        mk("supplier", dict(supplierName=name, contactPerson="刘工", status="0"), name)
+    # 采购单（草稿2张+已完成1张）
+    for i, (code, sup, prod, qty, st) in enumerate([
+            ("CG-D001", "深圳快联电子", "智能网关 G100", 20, "0"),
+            ("CG-D002", "杭州网域科技", "无线AP W50", 30, "0"),
+            ("CG-C001", "深圳快联电子", "工控机 I7", 5, "2")]):
+        mk("purchase", dict(purchaseCode=code, supplierName=sup, productName=prod,
+                            quantity=qty, price=100, totalAmount=qty*100,
+                            purchaseDate="2026-09-0%d" % (i+1), status=st), code)
+    # 销售单（已完成 2 张）
+    for code, cust, prod, qty in [("XS-C001", "杭州云启科技", "智能网关 G100", 3),
+                                   ("XS-C002", "上海恒达贸易", "无线AP W50", 8)]:
+        mk("sales", dict(salesCode=code, customerName=cust, productName=prod,
+                         quantity=qty, price=150, totalAmount=qty*150,
+                         salesDate="2026-09-06", status="2"), code)
+    # 员工
+    for no, name, dept, post in [("E001", "张伟", "研发部", "后端工程师"), ("E002", "李娜", "研发部", "前端工程师"), ("E003", "王强", "销售部", "客户经理")]:
+        mk("employee", dict(empNo=no, empName=name, deptName=dept, postName=post, status="0"), no)
+    # 考勤（今天 + 昨天）
+    from datetime import date, timedelta
+    today = date.today().strftime("%Y-%m-%d")
+    yest = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    mk("attendance", dict(empName="张伟", workDate=today, checkIn="08:55", checkOut="18:10", status="0"), "tw")
+    mk("attendance", dict(empName="李娜", workDate=today, checkIn="09:12", checkOut="18:30", status="1"), "tl")
+    mk("attendance", dict(empName="张伟", workDate=yest, checkIn="08:50", checkOut="19:30", status="0"), "yw")
+    # 假期余额 + 请假（草稿，待审批）
+    mk("quota", dict(empName="张伟", leaveType="3", year="2026", quotaDays=5), "q-张伟-3-2026")
+    mk("quota", dict(empName="李娜", leaveType="3", year="2026", quotaDays=5), "q-李娜-3-2026")
+    r = jpost("/portal/leave-submit", dict(leaveType="3", startDate="2026-09-28",
+              endDate="2026-09-29", days=2, reason="家中有事（演示待审批）"), headers=H)
+    # 合同
+    mk("contract", dict(contractCode="HT-2026-001", customerName="杭州云启科技", productName="智能网关 G100",
+                        amount=25980, signDate="2026-08-15", owner="张伟", status="1"), "HT-2026-001")
+    # 费用报销（待审批 1 + 已通过 1）
+    r = jpost("/portal/expense-submit", dict(category="1", amount=880.00, expenseDate="2026-09-05",
+              reason="出差杭州交通住宿（演示）"), headers=H)
+    # 补卡（待审批）
+    r = jpost("/portal/correction-submit", dict(workDate="2026-09-04", correctType="1",
+              correctTime="08:50", reason="忘打卡（演示）"), headers=H)
+    # 业务汇报
+    r = jpost("/portal/report-submit", dict(reportType="1", reportDate="2026-09-06",
+              title="本周研发进展汇报", content="完成企业管理系统迁移与功能补全，BPM 工作流引擎上线。"), headers=H)
+    print("[seed] 演示数据就绪")
+
+
 if __name__ == "__main__":
     test_auth()
+    seed_demo_data()
     test_crud()
     test_rules()
     test_dashboard()
@@ -665,9 +941,12 @@ if __name__ == "__main__":
     test_correction()
     test_overtime()
     test_followup()
+    test_expense_workflow()
+    test_correction_workflow()
     test_digest()
     test_file_upload()
     test_bpm()
+    test_leave_workflow()
     test_system()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")

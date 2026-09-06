@@ -28,6 +28,11 @@ public interface ExpenseService {
     void deleteExpense(Long id);
 
     /**
+     * BPM 流程结束回调：BPM 2=通过 -> 表 1 已通过；BPM 3=驳回 -> 表 2 已驳回
+     */
+    void updateExpenseStatusFromBpm(Long id, Integer status);
+
+    /**
      * 获得费用报销
      */
     ExpenseDO getExpense(Long id);

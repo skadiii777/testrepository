@@ -25,6 +25,13 @@
             <version>${revision}</version>
         </dependency>
 
+        <!-- 工作流模块（请假/报销/补卡接入 Flowable） -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-module-bpm</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- Web -->
         <dependency>
             <groupId>com.enterprise</groupId>

@@ -9,6 +9,9 @@ import com.enterprise.module.biz.dal.dataobject.attendance.AttendanceDO;
 import com.enterprise.module.biz.dal.dataobject.correction.AttendanceCorrectionDO;
 import com.enterprise.module.biz.dal.mysql.attendance.AttendanceMapper;
 import com.enterprise.module.biz.dal.mysql.correction.AttendanceCorrectionMapper;
+import com.enterprise.module.bpm.api.task.BpmProcessInstanceApi;
+import com.enterprise.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,7 @@ import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
  *
  * @author 企业管理平台
  */
+@Slf4j
 @Service
 @Validated
 public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionService {
@@ -38,12 +42,55 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     @Resource
     private AttendanceMapper attendanceMapper;
 
+    @Resource
+    private BpmProcessInstanceApi processInstanceApi;
+
+    /** 补卡流程定义 KEY（BPM 模型部署后生效） */
+    public static final String PROCESS_KEY = "biz_correction";
+
     @Override
     public Long createCorrection(AttendanceCorrectionSaveReqVO createReqVO) {
         AttendanceCorrectionDO correction = BeanUtils.toBean(createReqVO, AttendanceCorrectionDO.class);
         correction.setStatus("0"); // 强制初始状态，防止客户端篡改
         correctionMapper.insert(correction);
+        // 尝试发起 BPM 流程；未部署时降级为本地审批模式
+        try {
+            String processInstanceId = processInstanceApi.createProcessInstance(
+                    Long.valueOf(correction.getCreator()),
+                    new BpmProcessInstanceCreateReqDTO().setProcessDefinitionKey(PROCESS_KEY)
+                            .setBusinessKey(String.valueOf(correction.getId())));
+            correctionMapper.updateById(new AttendanceCorrectionDO().setId(correction.getId())
+                    .setProcessInstanceId(processInstanceId));
+        } catch (Exception e) {
+            log.warn("[createCorrection][BPM 流程未部署或发起失败，降级为本地审批] correctionId({}) 原因: {}",
+                    correction.getId(), e.getMessage());
+        }
         return correction.getId();
+    }
+
+    @Override
+    public void updateCorrectionStatusFromBpm(Long id, Integer status, String processInstanceId) {
+        // BPM 状态映射：2=通过 -> 表 1；3=驳回 -> 表 2
+        AttendanceCorrectionDO update = AttendanceCorrectionDO.builder()
+                .id(id)
+                .status(status == null ? null : String.valueOf(status - 1))
+                .processInstanceId(processInstanceId)
+                .build();
+        int rows = correctionMapper.auditCorrection(update);
+        System.out.println("[CorrectionBPM] audit rows=" + rows + " id=" + id + " status=" + status);
+        if (rows == 0) {
+            return;
+        }
+        // 审批通过时回写考勤
+        if (Integer.valueOf(2).equals(status)) {
+            try {
+                applyCorrection(correctionMapper.selectById(id));
+                System.out.println("[CorrectionBPM] applyCorrection done, workDate=" + correctionMapper.selectById(id).getWorkDate());
+            } catch (Exception e) {
+                System.out.println("[CorrectionBPM] applyCorrection 失败: " + e);
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override

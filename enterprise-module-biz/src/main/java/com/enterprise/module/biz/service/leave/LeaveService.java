@@ -43,6 +43,11 @@ public interface LeaveService {
     PageResult<LeaveDO> getLeavePageSelf(LeavePageReqVO pageReqVO, Long userId);
 
     /**
+     * BPM 流程结束回调：status=2 通过（扣余额） / 3 驳回
+     */
+    void updateLeaveStatusFromBpm(Long id, Integer status);
+
+    /**
      * 审批请假（status: 1=通过 2=驳回），通过时扣减假期余额
      */
     void auditLeave(Long id, String status, String auditRemark);

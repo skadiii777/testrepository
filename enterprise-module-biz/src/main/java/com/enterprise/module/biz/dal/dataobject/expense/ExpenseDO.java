@@ -41,6 +41,8 @@ public class ExpenseDO extends TenantBaseDO {
     private String invoiceUrl;
     /**审批状态*/
     private String status;
+    /**流程实例编号（BPM）*/
+    private String processInstanceId;
     /**审批意见*/
     private String auditRemark;
     /**审批人*/

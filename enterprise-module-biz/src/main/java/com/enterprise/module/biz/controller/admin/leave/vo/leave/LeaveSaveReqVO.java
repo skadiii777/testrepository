@@ -35,6 +35,9 @@ public class LeaveSaveReqVO {
     @Schema(description = "审批状态")
     
     private String status;
+
+    @Schema(description = "流程实例编号（BPM，服务端填充）")
+    private String processInstanceId;
     @Schema(description = "审批意见")
     
     private String remark;

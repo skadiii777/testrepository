@@ -35,6 +35,9 @@ public class AttendanceCorrectionRespVO {
     @Schema(description = "审批状态（0待审批 1已通过 2已驳回）")
     private String status;
 
+    @Schema(description = "流程实例编号（BPM）")
+    private String processInstanceId;
+
     @Schema(description = "审批意见")
     private String auditRemark;
 

@@ -32,6 +32,9 @@ public class ExpenseSaveReqVO {
 
     @Schema(description = "发票附件URL")
     private String invoiceUrl;
+
+    @Schema(description = "流程实例编号（BPM，服务端填充）")
+    private String processInstanceId;
     @Schema(description = "审批状态")
     
     private String status;

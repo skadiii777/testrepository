@@ -38,3 +38,6 @@ FROM system_menu m WHERE m.name = '销售单' AND m.type = 2 LIMIT 1;
 INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, component, component_name, status, creator, create_time, updater, update_time, deleted)
 SELECT concat(m.name, '作废'), 'biz:sales:void', 3, 8, m.id, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0'
 FROM system_menu m WHERE m.name = '销售单' AND m.type = 2 LIMIT 1;
+
+-- 报销单接入 BPM：流程实例编号列
+ALTER TABLE biz_expense ADD COLUMN process_instance_id varchar(64) DEFAULT NULL COMMENT '流程实例编号' AFTER status;

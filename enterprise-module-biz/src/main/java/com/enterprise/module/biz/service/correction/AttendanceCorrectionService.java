@@ -44,4 +44,10 @@ public interface AttendanceCorrectionService {
      * @return 0=记录不存在或已审批；1=成功
      */
     int auditCorrection(Long id, String status, String auditRemark, Long auditorUserId);
+
+    /**
+     * BPM 流程结束回调：BPM 2=通过 -> 表 1 已通过；BPM 3=驳回 -> 表 2 已驳回
+     * 通过时同样回写考勤
+     */
+    void updateCorrectionStatusFromBpm(Long id, Integer status, String processInstanceId);
 }
