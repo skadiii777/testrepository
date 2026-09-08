@@ -113,8 +113,13 @@ public class AuthController {
         List<MenuDO> menuList = menuService.getMenuList(menuIds);
         menuList = menuService.filterDisableMenus(menuList);
 
-        // 2. 拼接结果返回
-        return success(AuthConvert.INSTANCE.convert(user, roles, menuList));
+        // 2. 拼接结果返回（超管下发通配权限：前端 v-hasPermi 指令按 '*:*:*' 放行全部按钮，
+        //    否则任何未落菜单表的权限串都会导致超管按钮被隐藏）
+        AuthPermissionInfoRespVO respVO = AuthConvert.INSTANCE.convert(user, roles, menuList);
+        if (roleService.hasAnySuperAdmin(roleIds)) {
+            respVO.setPermissions(Collections.singleton("*:*:*"));
+        }
+        return success(respVO);
     }
 
     @PostMapping("/register")

@@ -40,5 +40,6 @@ SELECT '库存盘点', 'biz:stockcheck:query', 2, 7, id, 'stockcheck', 'ep:box',
 FROM system_menu WHERE name = '企业管理' AND type = 1 LIMIT 1;
 SET @m = LAST_INSERT_ID();
 INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, component, component_name, status, creator, create_time, updater, update_time, deleted)
-VALUES ('盘点确认', 'biz:stockcheck:confirm', 3, 1, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0'),
-       ('盘点删除', 'biz:stockcheck:delete', 3, 2, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0');
+VALUES ('盘点新增', 'biz:stockcheck:create', 3, 1, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0'),
+       ('盘点确认', 'biz:stockcheck:confirm', 3, 2, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0'),
+       ('盘点删除', 'biz:stockcheck:delete', 3, 3, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0');

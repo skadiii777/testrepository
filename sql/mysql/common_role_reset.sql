@@ -21,6 +21,17 @@ INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, u
 SELECT 2, id, '1', NOW(), '1', NOW(), b'0', 1 FROM system_menu
 WHERE deleted = 0 AND status = 0 AND (permission LIKE 'portal:%');
 
--- 4) 校验：应恰好 11 行（1 目录 + 5 页面 + 5 按钮）
+-- 3.1) 重新授予：企业管理父目录 + 客户合同产品子树（目录 + 页面 + 增删改导按钮，两层）
+-- 注意：必须同时授「企业管理」父目录，否则菜单树构建时整个子树会被丢弃
+INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted, tenant_id)
+SELECT 2, m.id, '1', NOW(), '1', NOW(), b'0', 1
+FROM system_menu m
+WHERE m.deleted = 0 AND m.status = 0
+  AND (m.name = '企业管理' AND m.type = 1
+       OR m.name = '客户合同产品' AND m.type = 1
+       OR m.parent_id = (SELECT t.id FROM (SELECT id FROM system_menu WHERE name = '客户合同产品' AND type = 1 AND deleted = 0) t)
+       OR m.parent_id IN (SELECT t2.id FROM (SELECT id FROM system_menu WHERE parent_id = (SELECT t3.id FROM (SELECT id FROM system_menu WHERE name = '客户合同产品' AND type = 1 AND deleted = 0) t3) AND deleted = 0) t2));
+
+-- 4) 校验：应恰好 43 行（工作台 11 + 企业管理父目录 1 + 客户合同产品子树 31）
 SELECT COUNT(*) AS common_role_grants FROM system_role_menu
 WHERE role_id = 2 AND deleted = 0 AND tenant_id = 1;

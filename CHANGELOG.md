@@ -1,5 +1,26 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-08（续 2）· 修复管理员审批按钮不可见 + 普通用户开放客户合同产品
+
+### 修复
+
+- **管理员/普通用户所有业务审批按钮在界面中被隐藏**：前端 v-hasPermi 引用的
+  `biz:approval:audit` 等 5 个权限串从未落菜单表（biz:approval:audit、
+  biz:correction:create/update、biz:followup:update、biz:stockcheck:create），
+  指令精确匹配失败直接把按钮从 DOM 移除。已补齐按钮菜单（两库 +
+  `sql/mysql/fix_missing_perms.sql` 幂等脚本），并同步修补 stock_check.sql 种子
+- **超管通配兜底**：get-permission-info 对超管角色下发 `*:*:*` 权限串
+  （AuthController），与前端指令的通配协议对齐，杜绝"权限串漏配→超管按钮消失"整类问题
+- 服务端 API 本就超管免检（冒烟测试全绿而界面不可用的根因）
+
+### 调整
+
+- **普通角色（common）开放客户合同产品子树**（31 项：目录+客户/产品/合同/供应商/
+  客户跟进页面及增删改导按钮，另补授「企业管理」父目录——父目录缺授权时整棵子树
+  不会渲染）。普通角色现共 43 项授权；common_role_reset.sql 已同步
+- 双角色浏览器实测：admin 审批按钮可见并完成一次真实审批（待办 8→7）；
+  testuser02 可见客户合同产品全部页面（24 条客户数据、新增按钮可用）
+
 ## 2026-09-08（续）· 新增库存盘点（对齐 yudao ERP StockCheck）
 
 ### 新增（测试 177 → 188 项全过）
