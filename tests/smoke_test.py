@@ -1021,6 +1021,93 @@ def test_payment():
 
 
 
+# ---------------- 14. 库存盘点（对齐 yudao ERP StockCheck） ----------------
+def test_stockcheck():
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    # 清残留：历史测试盘点单与单据
+    r = jget("/biz/stockcheck/page", params={"productName": TAG + "P", "pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        if row.get("status") == "0":
+            jdelete("/biz/stockcheck/delete", params={"id": row["id"]})
+    for mod, field, val in [("sales", "salesCode", "XSPAY01"), ("purchase", "purchaseCode", "CGPAY01"),
+                            ("purchase", "purchaseCode", "CGPAY02"), ("purchase", "purchaseCode", "CGCK01")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    r = jget("/biz/product/page", params={"productCode": "R-PAY", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/product/delete", params={"id": row["id"]})
+
+    # 建产品 + 采购完成（库存 50）
+    jpost("/biz/product/create", dict(productCode="R-PAY", productName=TAG + "P", category="测试",
+                                      unit="个", price=4, status="0"))
+    jpost("/biz/purchase/create", dict(purchaseCode="CGCK01", supplierName="盘点供应商",
+              productName=TAG + "P", quantity=50, price=4, purchaseDate=today))
+    pid = find_id("purchase", "purchaseCode", "CGCK01")
+    jpost("/biz/purchase/transition", params={"id": pid, "action": "confirm"})
+    r = jpost("/biz/purchase/complete", params={"id": pid})
+    check("盘点-采购完成入库", r.json().get("code") == 0, r.text[:120])
+    base_stock = get_stock(TAG + "P")  # 动态基准（payment 测试可能已占用同一产品库存行）
+
+    # 创建盘点单：实盘 47（快照当前账面）
+    r = jpost("/biz/stockcheck/create", dict(productName=TAG + "P", actualQuantity=47,
+              checkDate=today, remark="测试盘点：少 3 个"))
+    check("盘点-创建成功", r.json().get("code") == 0, r.text[:150])
+    rows = jget("/biz/stockcheck/page", params={"productName": TAG + "P", "pageNo": 1, "pageSize": 5}).json().get("data", {}).get("list", [])
+    rows = [x for x in rows if x.get("remark") == "测试盘点：少 3 个"]
+    cid = rows[0]["id"] if rows else None
+    check("盘点-快照账面=当下库存", rows and rows[0].get("bookQuantity") == base_stock
+          and rows[0].get("status") == "0", str(rows[:1]))
+
+    # 创建与确认之间库存变动：再入库 10（库存 60），确认时按当下账面重算
+    jpost("/biz/purchase/create", dict(purchaseCode="CGCK02", supplierName="盘点供应商",
+              productName=TAG + "P", quantity=10, price=4, purchaseDate=today))
+    pid2 = find_id("purchase", "purchaseCode", "CGCK02")
+    jpost("/biz/purchase/transition", params={"id": pid2, "action": "confirm"})
+    jpost("/biz/purchase/complete", params={"id": pid2})
+    check("盘点-入库后库存+10", get_stock(TAG + "P") == base_stock + 10, "stock=%s" % get_stock(TAG + "P"))
+
+    # 确认盘点：账面 = 当下库存 → 实盘 47，库存调整为 47
+    r = jpost("/biz/stockcheck/confirm", params={"id": cid})
+    check("盘点-确认成功", r.json().get("code") == 0, r.text[:150])
+    check("盘点-库存按实盘调整为47", get_stock(TAG + "P") == 47, "stock=%s" % get_stock(TAG + "P"))
+    rows = jget("/biz/stockcheck/page", params={"productName": TAG + "P", "pageNo": 1, "pageSize": 5}).json().get("data", {}).get("list", [])
+    row = [x for x in rows if x.get("id") == cid][0]
+    check("盘点-差异已确认", row.get("diffQuantity") == 47 - (base_stock + 10)
+          and row.get("bookQuantity") == base_stock + 10
+          and row.get("status") == "1", str(row))
+    r = jget("/biz/stockmove/page", params={"productName": TAG + "P", "pageNo": 1, "pageSize": 5})
+    moves = r.json().get("data", {}).get("list", [])
+    check("盘点-流水溯源", moves and moves[0].get("sourceType") == "stockcheck"
+          and moves[0].get("moveType") == "2", str(moves[:1]))
+
+    # 重复确认被拒；已确认删除被拒
+    r = jpost("/biz/stockcheck/confirm", params={"id": cid})
+    check("盘点-重复确认被拒", r.json().get("code") != 0, r.text[:120])
+    r = jdelete("/biz/stockcheck/delete", params={"id": cid})
+    check("盘点-已确认不可删除", r.json().get("code") != 0, r.text[:120])
+
+    # 待确认可删除
+    r = jpost("/biz/stockcheck/create", dict(productName=TAG + "P", actualQuantity=100,
+              checkDate=today, remark="盘点测试：待删除"))
+    rows = jget("/biz/stockcheck/page", params={"productName": TAG + "P", "pageNo": 1, "pageSize": 5}).json().get("data", {}).get("list", [])
+    rows = [x for x in rows if x.get("remark") == "盘点测试：待删除"]
+    cid2 = rows[0]["id"] if rows else None
+    r = jdelete("/biz/stockcheck/delete", params={"id": cid2})
+    check("盘点-待确认可删除", r.json().get("code") == 0, r.text[:120])
+
+    # 清理单据与产品（已确认盘点单保留作为库存轨迹）
+    for mod, field, val in [("purchase", "purchaseCode", "CGCK01"), ("purchase", "purchaseCode", "CGCK02")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    pid3 = find_id("product", "productCode", "R-PAY")
+    if pid3:
+        jdelete("/biz/product/delete", params={"id": pid3})
+
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1041,6 +1128,7 @@ if __name__ == "__main__":
     test_leave_workflow()
     test_system()
     test_payment()
+    test_stockcheck()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

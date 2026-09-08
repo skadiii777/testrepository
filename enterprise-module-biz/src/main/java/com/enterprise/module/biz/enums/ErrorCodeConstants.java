@@ -46,4 +46,8 @@ public interface ErrorCodeConstants {
     ErrorCode PAYMENT_ORDER_NOT_EXISTS = new ErrorCode(1_050_001_020, "关联单据不存在");
     ErrorCode PAYMENT_ORDER_NOT_COMPLETED = new ErrorCode(1_050_001_021, "仅已完成（状态2）的单据可以登记收付款");
     ErrorCode PAYMENT_AMOUNT_EXCEED = new ErrorCode(1_050_001_022, "累计金额超出单据总额：已收付 {}，单据总额 {}");
+    ErrorCode STOCKCHECK_NOT_EXISTS = new ErrorCode(1_050_001_023, "盘点单不存在");
+    ErrorCode STOCKCHECK_ALREADY_CONFIRMED = new ErrorCode(1_050_001_024, "该盘点单已确认，不能重复操作");
+    ErrorCode STOCKCHECK_CONFIRMED_CANNOT_DELETE = new ErrorCode(1_050_001_025, "已确认的盘点单不能删除");
+    ErrorCode STOCKCHECK_CONFIRM_FAILED = new ErrorCode(1_050_001_026, "盘点确认失败，库存调整未生效");
 }
