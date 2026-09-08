@@ -91,3 +91,26 @@
 | Redis | localhost:6379（需手动启动 D:\redis-5.0.10） |
 | 服务 | http://localhost:48080，登录 admin/admin123 |
 | 旧服务 | http://localhost:8090（enterprise-ms，独立运行） |
+
+## ✅ 已解决问题记录
+
+**补卡 BPM 审批通过后考勤未回写**（2026-09-06 浏览器验收发现，当日修复于 267b935）：
+- 根因：`updateCorrectionStatusFromBpm` 里用 `"1".equals(status)` 判断"通过"，
+  而 BPM 回调的 status 是 Integer（2=APPROVE），恒 false → 回写考勤被跳过
+- 修复：改用 `Integer.valueOf(2).equals(status)`（leave/expense 监听器同款写法本来就对）
+- 验证：smoke_test 三段 BPM 端到端（请假扣余额/报销回写/补卡回写考勤）164/164 全过；
+  2026-09-07 重建后端重跑仍 164/164，日志确认监听器在 HTTP 线程同步执行、租户上下文正常
+  （当初"监听器线程丢租户上下文"和"insert 在 Flowable 事务里被回滚"两个假设均不成立）
+- 教训：Integer/String equals 混用是 BPM 状态回调的固定坑，新增监听器一律用
+  `Integer.valueOf(N).equals(status)` 写法
+
+## ⚠️ 待观察
+
+**前端点菜单会"偶尔刷新页面"**——初步判断是 keep-alive 首次挂载的正常数据加载 +
+Element Plus 菜单组件的无害警告，待进一步确认是否有真实路由刷新。
+
+## 前后端服务与 git
+
+- 后端已推 GitHub main（267b935 补卡 BPM + 前一批功能补全）
+- 前端 pro-ui 分支本地已提交 d0a2b7a，推送被网络拦，等窗口期重试：
+  `git push github pro-ui`（remote github 已配置）

@@ -3,6 +3,7 @@ package com.enterprise.module.biz.listener;
 import com.enterprise.module.bpm.api.event.BpmProcessInstanceStatusEvent;
 import com.enterprise.module.bpm.api.event.BpmProcessInstanceStatusEventListener;
 import com.enterprise.module.biz.service.correction.AttendanceCorrectionService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,7 @@ import jakarta.annotation.Resource;
  *
  * @author 企业管理平台
  */
+@Slf4j
 @Component
 public class CorrectionStatusListener extends BpmProcessInstanceStatusEventListener {
 
@@ -29,8 +31,8 @@ public class CorrectionStatusListener extends BpmProcessInstanceStatusEventListe
 
     @Override
     protected void onEvent(BpmProcessInstanceStatusEvent event) {
-        System.out.println("[CorrectionStatusListener] 收到事件: key=" + event.getProcessDefinitionKey()
-                + " status=" + event.getStatus() + " businessKey=" + event.getBusinessKey());
+        log.info("[onEvent][补卡流程状态回调 key={} status={} businessKey={}]",
+                event.getProcessDefinitionKey(), event.getStatus(), event.getBusinessKey());
         correctionService.updateCorrectionStatusFromBpm(Long.parseLong(event.getBusinessKey()),
                 event.getStatus(), event.getBusinessKey());
     }

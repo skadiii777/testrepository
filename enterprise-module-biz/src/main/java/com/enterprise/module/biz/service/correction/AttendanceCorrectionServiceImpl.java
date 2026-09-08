@@ -77,18 +77,19 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
                 .processInstanceId(processInstanceId)
                 .build();
         int rows = correctionMapper.auditCorrection(update);
-        System.out.println("[CorrectionBPM] audit rows=" + rows + " id=" + id + " status=" + status);
+        log.info("[updateCorrectionStatusFromBpm][补卡({}) BPM 状态回写 status={} rows={}]", id, status, rows);
         if (rows == 0) {
             return;
         }
         // 审批通过时回写考勤
         if (Integer.valueOf(2).equals(status)) {
+            AttendanceCorrectionDO correction = correctionMapper.selectById(id);
             try {
-                applyCorrection(correctionMapper.selectById(id));
-                System.out.println("[CorrectionBPM] applyCorrection done, workDate=" + correctionMapper.selectById(id).getWorkDate());
+                applyCorrection(correction);
+                log.info("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写完成 workDate={}]",
+                        id, correction == null ? null : correction.getWorkDate());
             } catch (Exception e) {
-                System.out.println("[CorrectionBPM] applyCorrection 失败: " + e);
-                e.printStackTrace();
+                log.error("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写失败]", id, e);
             }
         }
     }

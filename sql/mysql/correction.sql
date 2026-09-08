@@ -55,5 +55,5 @@ INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, co
 VALUES ('补卡提交', 'portal:correction:add', 3, 1, @pm, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0');
 
 -- 普通角色授权
-INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted)
-SELECT 2, id, '1', NOW(), '1', NOW(), b'0' FROM system_menu WHERE permission LIKE 'portal:correction:%';
+INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted, tenant_id)
+SELECT 2, id, '1', NOW(), '1', NOW(), b'0', 1 FROM system_menu WHERE permission LIKE 'portal:correction:%';

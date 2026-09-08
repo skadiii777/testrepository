@@ -92,6 +92,21 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 - **数据库结构增量**：每次功能改动产生的 ALTER/INSERT（如 correction.sql/overtime.sql）
   在 CHANGELOG 里登记，云上按序补执行
 
+## 阶段 5.1 · 改动同步与备份规矩（2026-09-07 实装，必须遵守）
+
+1. **代码同步**：本地仓库是唯一事实源。任何改动先在本地改 → git 提交 → 再构建部署服务器
+   （前端 `npm run build:prod` → dist-prod.tar.gz → scp → 解压 /data/enterprise/front；
+   后端 `mvn package` → scp jar → `systemctl restart enterprise`，启动约 2.5 分钟）。
+   **严禁直接在服务器上改代码/页面**，服务器只是运行环境。
+2. **服务器配置备份**：`deploy-backup/` 保存了 application-pro.yaml / nginx-enterprise.conf /
+   enterprise.service / db.sh 的副本，服务器配置改动后要回拷到这里更新
+   （application-pro.yaml 含密码，已在 .gitignore，不进 git）。
+3. **数据库每日备份**：服务器 cron `30 2 * * * /data/backup/db.sh`，gzip 备份到
+   /data/backup/，保留 14 天。恢复命令：
+   `gunzip < enterprise-pro-YYYY-MM-DD.sql.gz | mysql -uroot -p enterprise-pro`
+4. **结构变更同步**：给云上库执行 DDL/字典/菜单 INSERT 前，先把 SQL 存入 `sql/mysql/`
+   并登记 CHANGELOG，本地库先验证再上云。
+
 ## 上线前检查清单
 
 - [ ] 验证码开启、数据库/Redis 密码非明文或环境变量

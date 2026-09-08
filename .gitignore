@@ -61,3 +61,7 @@ perm*.json
 
 # BPM 本地调试
 server.log
+deploy-backup/application-pro.yaml
+
+# Python 字节码
+__pycache__/

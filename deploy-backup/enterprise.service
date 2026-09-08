@@ -1,0 +1,13 @@
+[Unit]
+Description=Enterprise Server (yudao)
+After=network.target mysql.service redis-server.service
+
+[Service]
+WorkingDirectory=/data/app
+ExecStart=/usr/bin/java -Xms512m -Xmx1024m -Dfile.encoding=UTF-8 -jar /data/app/enterprise-server.jar --spring.profiles.active=pro
+Restart=always
+RestartSec=10
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

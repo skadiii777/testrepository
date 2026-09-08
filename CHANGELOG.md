@@ -1,5 +1,53 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-08 · 管理员/普通用户权限分离 + 登录弹窗修复
+
+- **普通角色（common）收窄为纯员工视图**：回收 yudao 基础种子误授的系统管理/
+  基础设施/流程管理/监控中心等全部管理端菜单，仅保留员工工作台 11 项授权
+  （1 目录 + 5 页面 + 5 按钮）。服务器已生效；新增维护脚本
+  `sql/mysql/common_role_reset.sql`（幂等，全新部署后在基础库导入后执行）
+- **修复登录后"没有该操作权限"弹窗**：首页企业概览此前对无权限用户仍请求
+  `/biz/dashboard/panel`（403 弹 toast）。现按 `biz:dashboard:query` 权限门控，
+  无权限不请求；快捷入口同步按权限过滤（普通用户自动隐藏审批中心入口）
+- 双角色浏览器实测：普通用户登录无弹窗、菜单仅首页+员工工作台、工作台页面
+  全部可用；管理员菜单与功能不受影响
+
+## 2026-09-07（晚）· 普通用户权限修复 + 注册自动分配角色
+
+- **修复：自注册用户登录后无菜单/全部 403**。两层根因：
+  1. 注册流程不分配任何角色 → AdminAuthServiceImpl.register 增加
+     `assignDefaultRoleQuietly`：自动绑定启用状态的「普通角色」（code=common），
+     失败仅告警不阻断注册
+  2. 种子 SQL 的 system_role_menu 授权行 **tenant_id 写成 0**（INSERT 漏 tenant_id 列），
+     权限校验按租户过滤后查不到授权 → 403。超管走免检通道故从未暴露。
+     两库数据已修正（tenant_id 0→1），源文件 enterprise-biz.sql / correction.sql 已补列
+- **修复：普通角色缺「员工工作台」目录菜单授权**（目录无授权整树不显示）。
+  服务器已按 API 补授（role 2 + 菜单 12733），种子文件同步补充目录授权语句
+- 顺带：本地发现 OA 演示页引用不存在的 @/views/oa/utils/constants（上游同样缺失），
+  已整删 src/views/oa；前端 .env 默认登录租户改「企业平台」；首页重写为业务工作台
+  （详见上一条目）
+
+## 2026-09-07 · 回归复核 + 日志规范化
+
+- 修复复核：补卡 BPM 审批通过后考勤未回写的问题确认已于上一批次修复
+  （根因是 BPM 状态回调 Integer vs String 的 equals 类型错误，见 267b935）；
+  重建后端重跑 smoke_test **164/164 全过**，日志确认监听器在 HTTP 线程同步执行、租户上下文正常
+- 清理调试遗留：监听器/回写路径的 System.out.println 换成规范 log，
+  回写失败会带完整堆栈进日志文件（之前只 printStackTrace 到控制台）
+
+## 2026-09-06 · BPM 工作流（Flowable）
+
+### 新增（测试 136 → 164 项全过）
+
+- **移植 yudao-module-bpm**（包名 com.enterprise 化，243 个 Java 文件），
+  Flowable 引擎首次启动自动建 45 张 ACT_/FLW_ 表
+- **请假/报销/补卡三大审批接入 Flowable**：提交时自动发起流程（未部署时降级本地直批），
+  BPM 状态监听器回写业务状态；请假通过扣假期余额、补卡通过自动回写考勤并重算迟到/早退
+- 新增 BPM 业务表 `sql/mysql/bpm_tables.sql`（8 张）；
+  biz_attendance_correction 加 process_instance_id 列
+- 修复：BPM 状态回调 `"1".equals(Integer status)` 恒 false，导致补卡审批通过后考勤未回写
+- 流程模型部署注意：type=10（BPMN 设计器）才会保存 bpmnXml，type=20（SIMPLE）会忽略
+
 ## 2026-09-05（晚）· 功能补全批次
 
 ### 新增（5 项，测试 111 → 131 项全过）

@@ -480,4 +480,5 @@ INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, co
 INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, component, component_name, status, creator, create_time, updater, update_time, deleted) VALUES ('我的报销', 'portal:expense:query', 2, 4, @dirPortal, 'expense', '#', 'portal/expense/index', 'PortalExpense', 0, '1', NOW(), '1', NOW(), b'0');
 SET @m = LAST_INSERT_ID();
 INSERT INTO system_menu (name, permission, type, sort, parent_id, path, icon, component, component_name, status, creator, create_time, updater, update_time, deleted) VALUES ('报销提交', 'portal:expense:add', 3, 1, @m, '', '#', '', '', 0, '1', NOW(), '1', NOW(), b'0');
-INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted) SELECT 2, id, '1', NOW(), '1', NOW(), b'0' FROM system_menu WHERE permission LIKE 'portal:%';
+INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted, tenant_id) SELECT 2, id, '1', NOW(), '1', NOW(), b'0', 1 FROM system_menu WHERE permission LIKE 'portal:%';
+INSERT INTO system_role_menu (role_id, menu_id, creator, create_time, updater, update_time, deleted, tenant_id) SELECT 2, id, '1', NOW(), '1', NOW(), b'0', 1 FROM system_menu WHERE name='员工工作台' AND type=1 AND deleted=0;

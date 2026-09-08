@@ -16,6 +16,7 @@ import com.enterprise.module.system.api.social.dto.SocialUserRespDTO;
 import com.enterprise.module.system.controller.admin.auth.vo.*;
 import com.enterprise.module.system.convert.auth.AuthConvert;
 import com.enterprise.module.system.dal.dataobject.oauth2.OAuth2AccessTokenDO;
+import com.enterprise.module.system.dal.dataobject.permission.RoleDO;
 import com.enterprise.module.system.dal.dataobject.user.AdminUserDO;
 import com.enterprise.module.system.enums.logger.LoginLogTypeEnum;
 import com.enterprise.module.system.enums.logger.LoginResultEnum;
@@ -24,6 +25,8 @@ import com.enterprise.module.system.enums.sms.SmsSceneEnum;
 import com.enterprise.module.system.service.logger.LoginLogService;
 import com.enterprise.module.system.service.member.MemberService;
 import com.enterprise.module.system.service.oauth2.OAuth2TokenService;
+import com.enterprise.module.system.service.permission.PermissionService;
+import com.enterprise.module.system.service.permission.RoleService;
 import com.enterprise.module.system.service.social.SocialUserService;
 import com.enterprise.module.system.service.user.AdminUserService;
 import com.anji.captcha.model.common.ResponseModel;
@@ -38,6 +41,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.Objects;
 
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -55,6 +59,10 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     @Resource
     private AdminUserService userService;
+    @Resource
+    private RoleService roleService;
+    @Resource
+    private PermissionService permissionService;
     @Resource
     private LoginLogService loginLogService;
     @Resource
@@ -280,8 +288,31 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         // 2. 校验用户名是否已存在
         AdminUserDO user = userService.registerUser(registerReqVO);
 
+        // 2.5 分配默认角色「普通角色」（code=common），注册用户无角色会导致登录后无任何菜单/权限
+        assignDefaultRoleQuietly(user.getId());
+
         // 3. 创建 Token 令牌，记录登录日志
         return createTokenAfterLoginSuccess(user, registerReqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
+    }
+
+    /**
+     * 给新注册用户绑定默认角色，失败只记日志不阻断注册
+     */
+    private void assignDefaultRoleQuietly(Long userId) {
+        try {
+            RoleDO commonRole = roleService.getRoleList().stream()
+                    .filter(role -> "common".equals(role.getCode())
+                            && CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus()))
+                    .findFirst().orElse(null);
+            if (commonRole == null) {
+                log.warn("[assignDefaultRoleQuietly][未找到启用状态的 common 角色，用户({}) 未分配默认角色]", userId);
+                return;
+            }
+            permissionService.assignUserRole(userId, Collections.singleton(commonRole.getId()));
+            log.info("[assignDefaultRoleQuietly][用户({}) 已分配默认角色 common({})]", userId, commonRole.getId());
+        } catch (Exception e) {
+            log.warn("[assignDefaultRoleQuietly][用户({}) 分配默认角色失败，请管理员在角色管理中手动分配]", userId, e);
+        }
     }
 
     @VisibleForTesting
