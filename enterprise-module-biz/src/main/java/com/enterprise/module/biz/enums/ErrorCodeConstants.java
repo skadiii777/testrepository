@@ -50,4 +50,11 @@ public interface ErrorCodeConstants {
     ErrorCode STOCKCHECK_ALREADY_CONFIRMED = new ErrorCode(1_050_001_024, "该盘点单已确认，不能重复操作");
     ErrorCode STOCKCHECK_CONFIRMED_CANNOT_DELETE = new ErrorCode(1_050_001_025, "已确认的盘点单不能删除");
     ErrorCode STOCKCHECK_CONFIRM_FAILED = new ErrorCode(1_050_001_026, "盘点确认失败，库存调整未生效");
+    ErrorCode RETURN_NOT_EXISTS = new ErrorCode(1_050_001_027, "退货单不存在");
+    ErrorCode RETURN_TYPE_INVALID = new ErrorCode(1_050_001_028, "退货类型不合法");
+    ErrorCode RETURN_ORDER_NOT_EXISTS = new ErrorCode(1_050_001_029, "关联单据不存在");
+    ErrorCode RETURN_ORDER_NOT_COMPLETED = new ErrorCode(1_050_001_030, "仅已完成（状态2）的单据可以退货");
+    ErrorCode RETURN_QTY_EXCEED = new ErrorCode(1_050_001_031, "累计退货数量超出原单数量：已退 {}，原单数量 {}");
+    ErrorCode RETURN_STATUS_INVALID = new ErrorCode(1_050_001_032, "退货单状态流转不合法");
+    ErrorCode RETURN_QTY_INVALID = new ErrorCode(1_050_001_033, "退货数量必须大于0");
 }

@@ -1108,7 +1108,119 @@ def test_stockcheck():
 
 
 
-# ---------------- 15. 注册审批联动（部门/职位 + 管理员审批 + 预留部门角色映射） ----------------
+# ---------------- 15. 销售/采购退货（对齐 yudao ERP ErpSaleReturn / ErpPurchaseReturn） ----------------
+def test_return():
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    # 清残留：删历史测试退货单与单据
+    r = jget("/biz/return/page", params={"orderCode": "RET", "pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/return/delete", params={"id": row["id"]})
+    for mod, field, val in [("sales", "salesCode", "XSRET01"), ("purchase", "purchaseCode", "CGRET01"),
+                            ("purchase", "purchaseCode", "CGRET02")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    r = jget("/biz/product/page", params={"productCode": "R-RET", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/product/delete", params={"id": row["id"]})
+
+    # 建产品 + 采购单(50x4=200 完成入库) + 销售单(30x10=300 完成出库)
+    jpost("/biz/product/create", dict(productCode="R-RET", productName=TAG + "R", category="测试",
+                                      unit="个", price=4, status="0"))
+    r = jpost("/biz/purchase/create", dict(purchaseCode="CGRET01", supplierName="退货供应商",
+              productName=TAG + "R", quantity=50, price=4, purchaseDate=today))
+    check("退货-采购单创建", r.json().get("code") == 0, r.text[:120])
+    pid = find_id("purchase", "purchaseCode", "CGRET01")
+    jpost("/biz/purchase/transition", params={"id": pid, "action": "confirm"})
+    r = jpost("/biz/purchase/complete", params={"id": pid})
+    check("退货-采购单完成入库", r.json().get("code") == 0, r.text[:120])
+    r = jpost("/biz/sales/create", dict(salesCode="XSRET01", customerName="退货客户",
+              productName=TAG + "R", quantity=30, price=10, salesDate=today))
+    check("退货-销售单创建", r.json().get("code") == 0, r.text[:120])
+    sid = find_id("sales", "salesCode", "XSRET01")
+    jpost("/biz/sales/transition", params={"id": sid, "action": "confirm"})
+    r = jpost("/biz/sales/complete", params={"id": sid})
+    check("退货-销售单完成出库", r.json().get("code") == 0, r.text[:120])
+
+    # --- 销售退货：退 5 件入库 ---
+    base = get_stock(TAG + "R")
+    r = jpost("/biz/return/create", dict(returnType="1", orderId=sid, quantity=5,
+              returnDate=today, reason="质量问题", remark="测试销售退货"))
+    check("退货-销售退货创建", r.json().get("code") == 0, r.text[:150])
+    rid1 = r.json().get("data")
+    r = jget("/biz/return/returned-sum", params={"returnType": "1", "orderId": sid})
+    check("退货-已退数量汇总", r.json().get("code") == 0 and int(r.json().get("data", 0)) == 5, r.text[:120])
+    # 累计超原单拒绝：30 已退 5 再退 26
+    r = jpost("/biz/return/create", dict(returnType="1", orderId=sid, quantity=26,
+              returnDate=today, reason="超量测试"))
+    check("退货-累计超原单被拒", r.json().get("code") != 0 and "超出" in r.json().get("msg", ""), r.text[:150])
+    # 未完成单据拒绝：草稿采购单 CGRET02
+    r = jpost("/biz/purchase/create", dict(purchaseCode="CGRET02", supplierName="退货供应商",
+              productName=TAG + "R", quantity=10, price=4, purchaseDate=today))
+    pid_draft = find_id("purchase", "purchaseCode", "CGRET02")
+    r = jpost("/biz/return/create", dict(returnType="2", orderId=pid_draft, quantity=1,
+              returnDate=today, reason="草稿测试"))
+    check("退货-草稿单退货被拒", r.json().get("code") != 0, r.text[:150])
+    # 类型不匹配拒绝：销售退货关联采购单（按销售单查不到该 id）
+    r = jpost("/biz/return/create", dict(returnType="1", orderId=pid, quantity=1,
+              returnDate=today, reason="类型不匹配测试"))
+    check("退货-类型与单据不匹配被拒", r.json().get("code") != 0, r.text[:150])
+    # 执行销售退货：入库 +5
+    r = jput("/biz/return/execute", params={"id": rid1})
+    check("退货-销售退货执行入库", r.json().get("code") == 0, r.text[:150])
+    check("退货-入库后库存+5", get_stock(TAG + "R") == base + 5,
+          "base=%s now=%s" % (base, get_stock(TAG + "R")))
+    # 重复执行被拒
+    r = jput("/biz/return/execute", params={"id": rid1})
+    check("退货-重复执行被拒", r.json().get("code") != 0, r.text[:150])
+    # 编辑已退货单被拒
+    r = jput("/biz/return/update", dict(id=rid1, returnType="1", orderId=sid, quantity=6,
+              returnDate=today, reason="改量测试"))
+    check("退货-已退货单编辑被拒", r.json().get("code") != 0, r.text[:150])
+
+    # --- 采购退货：退 10 件出库 ---
+    base2 = get_stock(TAG + "R")
+    r = jpost("/biz/return/create", dict(returnType="2", orderId=pid, quantity=10,
+              returnDate=today, reason="规格不符", remark="测试采购退货"))
+    check("退货-采购退货创建", r.json().get("code") == 0, r.text[:150])
+    rid2 = r.json().get("data")
+    r = jput("/biz/return/execute", params={"id": rid2})
+    check("退货-采购退货执行出库", r.json().get("code") == 0, r.text[:150])
+    check("退货-出库后库存-10", get_stock(TAG + "R") == base2 - 10,
+          "base=%s now=%s" % (base2, get_stock(TAG + "R")))
+
+    # --- 作废：新建销售退货 3 件再作废，库存不变、汇总不计入 ---
+    r = jpost("/biz/return/create", dict(returnType="1", orderId=sid, quantity=3,
+              returnDate=today, reason="作废测试"))
+    rid3 = r.json().get("data")
+    r = jput("/biz/return/void", params={"id": rid3})
+    check("退货-作废成功", r.json().get("code") == 0, r.text[:150])
+    check("退货-作废后库存不变", get_stock(TAG + "R") == base2 - 10, "库存漂移")
+    r = jget("/biz/return/returned-sum", params={"returnType": "1", "orderId": sid})
+    check("退货-作废不计入汇总", r.json().get("code") == 0 and int(r.json().get("data", 0)) == 5, r.text[:120])
+
+    # 分页可见 3 张
+    r = jget("/biz/return/page", params={"orderCode": "RET", "pageNo": 1, "pageSize": 10})
+    rows = r.json().get("data", {}).get("list", [])
+    check("退货-分页查询", r.json().get("code") == 0 and len(rows) == 3, "rows=%d" % len(rows))
+
+    # 清理退货单（已退货删除不回补库存，属管理员兜底操作）与单据、产品
+    for row in rows:
+        jdelete("/biz/return/delete", params={"id": row["id"]})
+    r = jget("/biz/return/page", params={"orderCode": "RET", "pageNo": 1, "pageSize": 10})
+    check("退货-清理完成", len(r.json().get("data", {}).get("list", [])) == 0, "残留退货单")
+    for mod, field, val in [("sales", "salesCode", "XSRET01"), ("purchase", "purchaseCode", "CGRET01"),
+                            ("purchase", "purchaseCode", "CGRET02")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    rid4 = find_id("product", "productCode", "R-RET")
+    if rid4:
+        jdelete("/biz/product/delete", params={"id": rid4})
+
+
+# ---------------- 16. 注册审批联动（部门/职位 + 管理员审批 + 预留部门角色映射） ----------------
 def test_register_flow():
     import datetime
     today = datetime.date.today().strftime("%Y-%m-%d")
@@ -1211,6 +1323,7 @@ if __name__ == "__main__":
     test_system()
     test_payment()
     test_stockcheck()
+    test_return()
     test_register_flow()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
