@@ -125,8 +125,16 @@ public class AuthController {
     @PostMapping("/register")
     @PermitAll
     @Operation(summary = "注册用户")
-    public CommonResult<AuthLoginRespVO> register(@RequestBody @Valid AuthRegisterReqVO registerReqVO) {
-        return success(authService.register(registerReqVO));
+    public CommonResult<Boolean> register(@RequestBody @Valid AuthRegisterReqVO registerReqVO) {
+        authService.register(registerReqVO);
+        return success(true);
+    }
+
+    @GetMapping("/register-options")
+    @PermitAll
+    @Operation(summary = "注册页下拉选项：启用部门 + 启用岗位", description = "未登录可访问，仅返回 id/名称，不暴露敏感信息")
+    public CommonResult<AuthRegisterOptionsRespVO> getRegisterOptions() {
+        return success(authService.getRegisterOptions());
     }
 
     // ========== 短信登录相关 ==========

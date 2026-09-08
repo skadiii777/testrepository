@@ -16,6 +16,7 @@ import com.enterprise.module.system.enums.sms.SmsSceneEnum;
 import com.enterprise.module.system.enums.social.SocialTypeEnum;
 import com.enterprise.module.system.service.logger.LoginLogService;
 import com.enterprise.module.system.service.member.MemberService;
+import com.enterprise.module.system.service.registerapply.RegisterApplyService;
 import com.enterprise.module.system.service.oauth2.OAuth2TokenService;
 import com.enterprise.module.system.service.social.SocialUserService;
 import com.enterprise.module.system.service.user.AdminUserService;
@@ -61,6 +62,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     private MemberService memberService;
     @MockitoBean
     private Validator validator;
+    @MockitoBean
+    private RegisterApplyService registerApplyService;
 
     @BeforeEach
     public void setUp() {
@@ -303,21 +306,17 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
 
     @Test
     public void testRegister_success() {
-        // 准备参数
+        // 准备参数（注册 = 创建待审批申请，不创建账号、不发放 token）
         AuthRegisterReqVO reqVO = randomPojo(AuthRegisterReqVO.class);
         authService.setCaptchaEnable(false);
-        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(1L)
-                .setUsername(reqVO.getUsername()).setStatus(CommonStatusEnum.ENABLE.getStatus()));
-        when(userService.registerUser(reqVO)).thenReturn(user);
-        OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(user.getId())
-                .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(user.getId()), eq(UserTypeEnum.ADMIN.getValue()),
-                eq("default"), isNull())).thenReturn(accessTokenDO);
+        when(userService.registerUser(org.mockito.ArgumentMatchers.any(AuthRegisterReqVO.class))).thenReturn(null);
+        when(registerApplyService.hasPendingApply(reqVO.getUsername())).thenReturn(false);
 
         // 调用，并断言
-        AuthLoginRespVO loginRespVO = authService.register(reqVO);
-        assertPojoEquals(accessTokenDO, loginRespVO);
-        verify(userService, never()).getUser(anyLong());
+        authService.register(reqVO);
+        verify(registerApplyService).createApply(eq(reqVO.getUsername()), anyString(),
+                eq(reqVO.getNickname()), eq(reqVO.getDeptId()), any());
+        verify(oauth2TokenService, never()).createAccessToken(anyLong(), anyInt(), anyString(), any());
     }
 
     @Test

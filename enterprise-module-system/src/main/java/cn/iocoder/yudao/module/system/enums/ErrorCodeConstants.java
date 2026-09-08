@@ -46,6 +46,12 @@ public interface ErrorCodeConstants {
     ErrorCode USER_IMPORT_INIT_PASSWORD = new ErrorCode(1_002_003_009, "初始密码不能为空");
     ErrorCode USER_MOBILE_NOT_EXISTS = new ErrorCode(1_002_003_010, "该手机号尚未注册");
     ErrorCode USER_REGISTER_DISABLED = new ErrorCode(1_002_003_011, "注册功能已关闭");
+    ErrorCode AUTH_REGISTER_PENDING = new ErrorCode(1_002_003_012, "注册申请已提交，等待管理员审批通过后方可登录");
+    ErrorCode REGISTER_APPLY_DUPLICATE = new ErrorCode(1_002_003_013, "该用户名已注册或正在审批中");
+    ErrorCode REGISTER_DEPT_INVALID = new ErrorCode(1_002_003_014, "申请部门不存在或已停用");
+    ErrorCode REGISTER_POST_INVALID = new ErrorCode(1_002_003_015, "申请岗位不存在或已停用");
+    ErrorCode REGISTER_APPLY_NOT_EXISTS = new ErrorCode(1_002_003_016, "注册申请不存在");
+    ErrorCode REGISTER_APPLY_ALREADY_AUDITED = new ErrorCode(1_002_003_017, "该注册申请已处理，请刷新列表");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

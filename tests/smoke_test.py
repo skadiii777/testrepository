@@ -1108,6 +1108,88 @@ def test_stockcheck():
 
 
 
+# ---------------- 15. 注册审批联动（部门/职位 + 管理员审批 + 预留部门角色映射） ----------------
+def test_register_flow():
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    stamp = str(int(time.time()) % 100000)
+    uname = "regflow" + stamp[-4:]
+    # 取启用部门/岗位选项（未登录接口）
+    r = req("get", "/system/auth/register-options")
+    opts = r.json().get("data", {})
+    check("注册-下拉选项接口", r.json().get("code") == 0 and len(opts.get("depts", [])) > 0, r.text[:120])
+    dept_id = opts["depts"][0]["id"]
+    post_id = (opts.get("posts") or [{}])[0].get("id")
+
+    # 1) 注册（提交申请）
+    body = dict(username=uname, nickname="流程注册测试", password="Test123456", deptId=dept_id)
+    if post_id:
+        body["postId"] = post_id
+    r = jpost("/system/auth/register", body)
+    check("注册-提交申请", r.json().get("code") == 0 and r.json().get("data") is True, r.text[:150])
+
+    # 2) 待审批：登录被明确提示
+    r = jpost("/system/auth/login", dict(username=uname, password="Test123456"))
+    check("注册-待审批登录被拒且提示明确", r.json().get("code") != 0
+          and "等待管理员审批" in r.json().get("msg", ""), r.text[:150])
+
+    # 3) 管理员可见待审批列表
+    r = jget("/system/register-apply/page", params={"username": uname, "status": "0", "pageNo": 1, "pageSize": 5})
+    rows = r.json().get("data", {}).get("list", [])
+    check("注册-待审批列表可见", r.json().get("code") == 0 and len(rows) == 1, r.text[:120])
+    aid = rows[0]["id"] if rows else None
+
+    # 4) 审批通过：账号创建、入部门、绑岗位、分配普通角色
+    r = jpost("/system/register-apply/approve", params={"id": aid})
+    check("注册-审批通过", r.json().get("code") == 0, r.text[:120])
+    uid = find_id("system/users-page?", "username", uname) if False else None
+    r = jget("/system/user/page", params={"pageNo": 1, "pageSize": 5, "username": uname})
+    urows = r.json().get("data", {}).get("list", [])
+    check("注册-账号已创建", urows and urows[0].get("status") == 0 and urows[0].get("deptId") == dept_id,
+          str(urows[:1]))
+    uid = urows[0]["id"] if urows else None
+    r = jget("/system/permission/list-user-roles", params={"userId": uid})
+    roles = r.json().get("data", [])
+    check("注册-已分配普通角色", r.json().get("code") == 0 and len(roles) >= 1, r.text[:120])
+
+    # 5) 审批后可登录
+    r = jpost("/system/auth/login", dict(username=uname, password="Test123456"))
+    check("注册-审批后可登录", r.json().get("code") == 0, r.text[:120])
+
+    # 6) 重复注册同名被拒
+    r = jpost("/system/auth/register", body)
+    check("注册-重复用户名被拒", r.json().get("code") != 0, r.text[:120])
+
+    # 7) 驳回分支：注册第二个用户并驳回
+    uname2 = "regrej" + stamp[-4:]
+    body2 = dict(username=uname2, nickname="驳回测试", password="Test123456", deptId=dept_id)
+    r = jpost("/system/auth/register", body2)
+    check("注册-第二笔提交", r.json().get("code") == 0, r.text[:120])
+    r = jget("/system/register-apply/page", params={"username": uname2, "status": "0", "pageNo": 1, "pageSize": 5})
+    rows2 = r.json().get("data", {}).get("list", [])
+    aid2 = rows2[0]["id"] if rows2 else None
+    r = jpost("/system/register-apply/reject", params={"id": aid2, "reason": "信息不符"})
+    check("注册-驳回成功", r.json().get("code") == 0, r.text[:120])
+    r = jpost("/system/auth/login", dict(username=uname2, password="Test123456"))
+    check("注册-驳回后登录被拒", r.json().get("code") != 0, r.text[:120])
+
+    # 8) 预留接口：部门默认角色映射
+    r = jpost("/system/dept-role-map/create", params={"deptId": dept_id, "roleId": roles[0] if roles else 2})
+    check("映射-创建", r.json().get("code") == 0, r.text[:120])
+    r = jget("/system/dept-role-map/list-by-dept", params={"deptId": dept_id})
+    maps = r.json().get("data", [])
+    check("映射-按部门查询", r.json().get("code") == 0 and len(maps) >= 1, r.text[:120])
+    mid = maps[0]["id"] if maps else None
+    if mid:
+        r = jdelete("/system/dept-role-map/delete", params={"id": mid})
+        check("映射-删除", r.json().get("code") == 0, r.text[:120])
+
+    # 清理：删除测试账号
+    if uid:
+        jdelete("/system/user/delete", params={"id": uid})
+
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1129,6 +1211,7 @@ if __name__ == "__main__":
     test_system()
     test_payment()
     test_stockcheck()
+    test_register_flow()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

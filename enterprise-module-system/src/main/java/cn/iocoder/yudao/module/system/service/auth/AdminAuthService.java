@@ -76,7 +76,12 @@ public interface AdminAuthService {
      * @param createReqVO 注册用户
      * @return 注册结果
      */
-    AuthLoginRespVO register(AuthRegisterReqVO createReqVO);
+    void register(AuthRegisterReqVO createReqVO);
+
+    /**
+     * 注册页下拉选项：启用部门 + 启用岗位（未登录可访问，仅含 id/名称）
+     */
+    AuthRegisterOptionsRespVO getRegisterOptions();
 
     /**
      * 重置密码

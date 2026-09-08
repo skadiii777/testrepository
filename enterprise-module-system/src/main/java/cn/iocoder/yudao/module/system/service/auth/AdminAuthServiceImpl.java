@@ -26,6 +26,13 @@ import com.enterprise.module.system.service.logger.LoginLogService;
 import com.enterprise.module.system.service.member.MemberService;
 import com.enterprise.module.system.service.oauth2.OAuth2TokenService;
 import com.enterprise.module.system.service.permission.PermissionService;
+import com.enterprise.module.system.controller.admin.auth.vo.AuthRegisterOptionsRespVO;
+import com.enterprise.module.system.controller.admin.dept.vo.dept.DeptListReqVO;
+import com.enterprise.module.system.dal.dataobject.dept.DeptDO;
+import com.enterprise.module.system.dal.dataobject.dept.PostDO;
+import com.enterprise.module.system.service.dept.DeptService;
+import com.enterprise.module.system.service.dept.PostService;
+import com.enterprise.module.system.service.registerapply.RegisterApplyService;
 import com.enterprise.module.system.service.permission.RoleService;
 import com.enterprise.module.system.service.social.SocialUserService;
 import com.enterprise.module.system.service.user.AdminUserService;
@@ -42,6 +49,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -59,6 +68,12 @@ public class AdminAuthServiceImpl implements AdminAuthService {
 
     @Resource
     private AdminUserService userService;
+    @Resource
+    private RegisterApplyService registerApplyService;
+    @Resource
+    private DeptService deptService;
+    @Resource
+    private PostService postService;
     @Resource
     private RoleService roleService;
     @Resource
@@ -91,6 +106,10 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         // 校验账号是否存在
         AdminUserDO user = userService.getUserByUsername(username);
         if (user == null) {
+            // 账号不存在：若是待审批的注册申请，给出明确提示（避免"账号或密码不正确"造成困惑）
+            if (registerApplyService.hasPendingApply(username)) {
+                throw exception(AUTH_REGISTER_PENDING);
+            }
             createLoginLog(null, username, logTypeEnum, LoginResultEnum.BAD_CREDENTIALS);
             throw exception(AUTH_LOGIN_BAD_CREDENTIALS);
         }
@@ -281,18 +300,27 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     @Override
-    public AuthLoginRespVO register(AuthRegisterReqVO registerReqVO) {
+    public void register(AuthRegisterReqVO registerReqVO) {
         // 1. 校验验证码
         validateCaptcha(registerReqVO);
 
-        // 2. 校验用户名是否已存在
-        AdminUserDO user = userService.registerUser(registerReqVO);
+        // 2. 创建注册申请：账号不落 system_users、不可登录；管理员审批通过后才创建正式账号
+        //    并加入申请的部门/岗位、按部门映射分配角色
+        registerApplyService.createApply(registerReqVO.getUsername(), registerReqVO.getPassword(),
+                registerReqVO.getNickname(), registerReqVO.getDeptId(), registerReqVO.getPostId());
+    }
 
-        // 2.5 分配默认角色「普通角色」（code=common），注册用户无角色会导致登录后无任何菜单/权限
-        assignDefaultRoleQuietly(user.getId());
-
-        // 3. 创建 Token 令牌，记录登录日志
-        return createTokenAfterLoginSuccess(user, registerReqVO.getUsername(), LoginLogTypeEnum.LOGIN_USERNAME);
+    @Override
+    public AuthRegisterOptionsRespVO getRegisterOptions() {
+        List<DeptDO> depts = deptService.getDeptList(
+                new DeptListReqVO().setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        List<PostDO> posts = postService.getPostList(null, Collections.singleton(CommonStatusEnum.ENABLE.getStatus()));
+        return AuthRegisterOptionsRespVO.builder()
+                .depts(depts.stream().map(d -> AuthRegisterOptionsRespVO.Dept.builder()
+                        .id(d.getId()).name(d.getName()).build()).toList())
+                .posts(posts.stream().map(p -> AuthRegisterOptionsRespVO.Post.builder()
+                        .id(p.getId()).name(p.getName()).build()).toList())
+                .build();
     }
 
     /**
