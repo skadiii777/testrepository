@@ -40,4 +40,10 @@ public interface ErrorCodeConstants {
     ErrorCode CORRECTION_AUDIT_STATUS_INVALID = new ErrorCode(1_050_001_014, "审批状态不合法");
     ErrorCode ORDER_STATUS_TRANSITION_INVALID = new ErrorCode(1_050_001_015, "单据状态流转不合法");
     ErrorCode FOLLOWUP_NOT_EXISTS = new ErrorCode(1_050_001_016, "跟进记录不存在");
+    ErrorCode PAYMENT_NOT_EXISTS = new ErrorCode(1_050_001_017, "收付款流水不存在");
+    ErrorCode PAYMENT_BIZ_TYPE_INVALID = new ErrorCode(1_050_001_018, "关联单据类型不合法");
+    ErrorCode PAYMENT_TYPE_BIZ_MISMATCH = new ErrorCode(1_050_001_019, "收付类型与单据类型不匹配（收款对应销售单，付款对应采购单）");
+    ErrorCode PAYMENT_ORDER_NOT_EXISTS = new ErrorCode(1_050_001_020, "关联单据不存在");
+    ErrorCode PAYMENT_ORDER_NOT_COMPLETED = new ErrorCode(1_050_001_021, "仅已完成（状态2）的单据可以登记收付款");
+    ErrorCode PAYMENT_AMOUNT_EXCEED = new ErrorCode(1_050_001_022, "累计金额超出单据总额：已收付 {}，单据总额 {}");
 }

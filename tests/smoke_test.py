@@ -811,6 +811,7 @@ CORRECTION_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def test_correction_workflow():
+    FDATE = (__import__("datetime").date.today() + __import__("datetime").timedelta(days=30)).strftime("%Y-%m-%d")
     # 部署（或更新）biz_correction 流程模型
     r = jpost("/bpm/model/create", dict(key="biz_correction", name="补卡审批流程", bpmnXml=CORRECTION_BPMN,
               type=10, formType=20, visible=True, description="业务补卡：审批通过自动回写考勤",
@@ -839,7 +840,7 @@ def test_correction_workflow():
             jdelete("/portal/correction-withdraw", params={"id": row["id"]})
 
     # 提交补卡 -> 自动发起流程
-    r = jpost("/portal/correction-submit", dict(workDate="2026-09-08", correctType="1",
+    r = jpost("/portal/correction-submit", dict(workDate=FDATE, correctType="1",
               correctTime="08:50", reason="补卡流程测试：外出办事"))
     check("补卡流程-提交", r.json().get("code") == 0, r.text[:150])
     r = jget("/portal/correction-page", params={"pageNo": 1, "pageSize": 20})
@@ -855,7 +856,7 @@ def test_correction_workflow():
     if tasks:
         r = jput("/bpm/task/approve", dict(id=tasks[0]["id"], reason="同意（流程测试）"))
         check("补卡流程-审批通过", r.json().get("code") == 0, r.text[:150])
-    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": "2026-09-08", "pageNo": 1, "pageSize": 5})
+    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": FDATE, "pageNo": 1, "pageSize": 5})
     rows = r.json().get("data", {}).get("list", [])
     check("补卡流程-考勤自动回写", rows and rows[0].get("checkIn") == "08:50" and rows[0].get("status") == "0",
           str(rows[:1]))
@@ -863,7 +864,7 @@ def test_correction_workflow():
     # 清理
     if cid:
         jdelete("/biz/correction/delete", params={"id": cid})
-    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": "2026-09-08", "pageNo": 1, "pageSize": 5})
+    r = jget("/biz/attendance/page", params={"empName": "管理员", "workDate": FDATE, "pageNo": 1, "pageSize": 5})
     for row in r.json().get("data", {}).get("list", []):
         jdelete("/biz/attendance/delete", params={"id": row["id"]})
 
@@ -929,6 +930,97 @@ def seed_demo_data():
     print("[seed] 演示数据就绪")
 
 
+# ---------------- 13. 收付款管理（对齐 yudao ERP 收付款单 / CRM 回款） ----------------
+def test_payment():
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    # 清残留：删历史测试收付款与单据
+    r = jget("/biz/payment/page", params={"orderCode": "PAY", "pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/payment/delete", params={"id": row["id"]})
+    for mod, field, val in [("sales", "salesCode", "XSPAY01"), ("purchase", "purchaseCode", "CGPAY01")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    r = jget("/biz/product/page", params={"productCode": "R-PAY", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/product/delete", params={"id": row["id"]})
+
+    # 建产品 + 采购单(50x4=200，完成后入库) + 销售单(30x10=300，完成后出库)
+    jpost("/biz/product/create", dict(productCode="R-PAY", productName=TAG + "P", category="测试",
+                                      unit="个", price=4, status="0"))
+    r = jpost("/biz/purchase/create", dict(purchaseCode="CGPAY01", supplierName="收付款供应商",
+              productName=TAG + "P", quantity=50, price=4, purchaseDate=today))
+    check("收付款-采购单创建", r.json().get("code") == 0, r.text[:120])
+    pid = find_id("purchase", "purchaseCode", "CGPAY01")
+    jpost("/biz/purchase/transition", params={"id": pid, "action": "confirm"})
+    r = jpost("/biz/purchase/complete", params={"id": pid})
+    check("收付款-采购单完成", r.json().get("code") == 0, r.text[:120])
+    r = jpost("/biz/sales/create", dict(salesCode="XSPAY01", customerName="收付款客户",
+              productName=TAG + "P", quantity=30, price=10, salesDate=today))
+    check("收付款-销售单创建", r.json().get("code") == 0, r.text[:120])
+    sid = find_id("sales", "salesCode", "XSPAY01")
+    jpost("/biz/sales/transition", params={"id": sid, "action": "confirm"})
+    r = jpost("/biz/sales/complete", params={"id": sid})
+    check("收付款-销售单完成", r.json().get("code") == 0, r.text[:120])
+
+    # 销售收款 200
+    r = jpost("/biz/payment/create", dict(paymentType="1", bizType="1", orderId=sid,
+              amount=200, paymentMethod="2", paymentDate=today, reason=None, remark="测试收款"))
+    check("收付款-销售收款登记", r.json().get("code") == 0, r.text[:150])
+    # 超总额拒绝：300 已收 200 再收 150
+    r = jpost("/biz/payment/create", dict(paymentType="1", bizType="1", orderId=sid,
+              amount=150, paymentMethod="1", paymentDate=today, remark="超收测试"))
+    check("收付款-累计超总额被拒", r.json().get("code") != 0 and "超出" in r.json().get("msg", ""), r.text[:150])
+    r = jget("/biz/payment/paid-sum", params={"bizType": "1", "orderId": sid})
+    check("收付款-已收金额汇总", r.json().get("code") == 0 and float(r.json().get("data", 0)) == 200.0,
+          r.text[:120])
+    # 未完成单据拒绝
+    r = jpost("/biz/purchase/create", dict(purchaseCode="CGPAY02", supplierName="收付款供应商",
+              productName=TAG + "P", quantity=1, price=4, purchaseDate=today))
+    pid_draft = find_id("purchase", "purchaseCode", "CGPAY02")
+    r = jpost("/biz/payment/create", dict(paymentType="2", bizType="2", orderId=pid_draft,
+              amount=1, paymentMethod="1", paymentDate=today, remark="草稿付款测试"))
+    check("收付款-草稿单登记被拒", r.json().get("code") != 0, r.text[:150])
+    # 类型不匹配拒绝：收款关联采购单
+    r = jpost("/biz/payment/create", dict(paymentType="1", bizType="2", orderId=pid,
+              amount=1, paymentMethod="1", paymentDate=today, remark="类型不匹配测试"))
+    check("收付款-收付类型不匹配被拒", r.json().get("code") != 0, r.text[:150])
+    # 采购付款 100
+    r = jpost("/biz/payment/create", dict(paymentType="2", bizType="2", orderId=pid,
+              amount=100, paymentMethod="3", paymentDate=today, remark="测试付款"))
+    check("收付款-采购付款登记", r.json().get("code") == 0, r.text[:150])
+    # 分页可见两条
+    r = jget("/biz/payment/page", params={"orderCode": "PAY", "pageNo": 1, "pageSize": 10})
+    rows = r.json().get("data", {}).get("list", [])
+    check("收付款-分页查询", r.json().get("code") == 0 and len(rows) == 2, "rows=%d" % len(rows))
+    # 看板本月收款统计
+    r = jpost("/biz/dashboard/panel")
+    check("收付款-看板本月收款统计", r.json().get("code") == 0
+          and float(r.json().get("data", {}).get("monthReceived", 0)) >= 200.0, r.text[:150])
+    # 删除流水后汇总归零
+    for row in rows:
+        if row.get("remark") == "测试收款":
+            jdelete("/biz/payment/delete", params={"id": row["id"]})
+    r = jget("/biz/payment/paid-sum", params={"bizType": "1", "orderId": sid})
+    check("收付款-删除后汇总归零", r.json().get("code") == 0 and float(r.json().get("data", 0)) == 0.0,
+          r.text[:120])
+    # 清理单据与产品
+    for mod, field, val in [("sales", "salesCode", "XSPAY01"), ("purchase", "purchaseCode", "CGPAY01"),
+                            ("purchase", "purchaseCode", "CGPAY02")]:
+        rid = find_id(mod, field, val)
+        if rid:
+            jdelete("/biz/%s/delete" % mod, params={"id": rid})
+    pid2 = find_id("product", "productCode", "R-PAY")
+    if pid2:
+        jdelete("/biz/product/delete", params={"id": pid2})
+    # 剩余流水也清理，保证下月看板统计不受影响
+    r = jget("/biz/payment/page", params={"orderCode": "PAY", "pageNo": 1, "pageSize": 50})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/payment/delete", params={"id": row["id"]})
+
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -948,6 +1040,7 @@ if __name__ == "__main__":
     test_bpm()
     test_leave_workflow()
     test_system()
+    test_payment()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

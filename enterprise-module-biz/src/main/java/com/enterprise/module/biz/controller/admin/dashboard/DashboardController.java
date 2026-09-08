@@ -10,6 +10,8 @@ import com.enterprise.module.biz.dal.mysql.customer.CustomerMapper;
 import com.enterprise.module.biz.dal.mysql.product.ProductMapper;
 import com.enterprise.module.biz.dal.mysql.employee.EmployeeMapper;
 import com.enterprise.module.biz.dal.mysql.expense.ExpenseMapper;
+import com.enterprise.module.biz.dal.mysql.payment.PaymentMapper;
+import com.enterprise.module.biz.dal.dataobject.payment.PaymentDO;
 import com.enterprise.module.biz.dal.dataobject.leave.LeaveDO;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,6 +49,8 @@ public class DashboardController {
     @Resource
     private ExpenseMapper expenseMapper;
     @Resource
+    private PaymentMapper paymentMapper;
+    @Resource
     private ContractMapper contractMapper;
     @Resource
     private com.enterprise.module.biz.service.digest.BizDigestService digestService;
@@ -68,6 +72,14 @@ public class DashboardController {
         // 库存预警数
         data.put("lowStockCount", stockMapper.selectList(new QueryWrapper<com.enterprise.module.biz.dal.dataobject.stock.StockDO>()
                 .apply("quantity <= min_quantity")).size());
+        // 本月收付款合计（payment_date 为 yyyy-MM-dd 字符串，按前缀匹配月份）
+        String monthPrefix = String.format("%04d-%02d", LocalDate.now().getYear(), LocalDate.now().getMonthValue());
+        data.put("monthReceived", paymentMapper.selectList(new QueryWrapper<PaymentDO>()
+                .eq("payment_type", "1").likeRight("payment_date", monthPrefix)).stream()
+                .map(PaymentDO::getAmount).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+        data.put("monthPaid", paymentMapper.selectList(new QueryWrapper<PaymentDO>()
+                .eq("payment_type", "2").likeRight("payment_date", monthPrefix)).stream()
+                .map(PaymentDO::getAmount).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
         return success(data);
     }
 

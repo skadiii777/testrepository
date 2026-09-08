@@ -36,6 +36,9 @@ public class PurchaseServiceImpl implements PurchaseService {
     public Long createPurchase(PurchaseSaveReqVO createReqVO) {
         PurchaseDO purchase = BeanUtils.toBean(createReqVO, PurchaseDO.class);
         purchase.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
+        if (purchase.getTotalAmount() == null) { // 总额 = 数量 × 单价
+            purchase.setTotalAmount(java.math.BigDecimal.valueOf(purchase.getQuantity()).multiply(purchase.getPrice()));
+        }
         purchaseMapper.insert(purchase);
         return purchase.getId();
     }

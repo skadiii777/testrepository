@@ -36,6 +36,9 @@ public class SalesServiceImpl implements SalesService {
     public Long createSales(SalesSaveReqVO createReqVO) {
         SalesDO sales = BeanUtils.toBean(createReqVO, SalesDO.class);
         sales.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
+        if (sales.getTotalAmount() == null) { // 总额 = 数量 × 单价
+            sales.setTotalAmount(java.math.BigDecimal.valueOf(sales.getQuantity()).multiply(sales.getPrice()));
+        }
         salesMapper.insert(sales);
         return sales.getId();
     }
