@@ -1386,6 +1386,78 @@ def test_crm_funnel():
     check("CRM-清理完成", True, "")
 
 
+# ---------------- 18. 客户联系人（对齐 yudao CRM 联系人，简化版） ----------------
+def test_contact():
+    # 清残留
+    r = jget("/biz/contact/page", params={"customerName": TAG, "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/contact/delete", params={"id": row["id"]})
+    r = jget("/biz/customer/page", params={"customerName": TAG + "联系人客", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/customer/delete", params={"id": row["id"]})
+
+    # 建客户
+    r = jpost("/biz/customer/create", dict(customerName=TAG + "联系人客", contactPerson="王总",
+              phone="13900009999", status="0"))
+    check("联系人-客户创建", r.json().get("code") == 0, r.text[:120])
+    cust_id = r.json().get("data")
+
+    # 创建联系人（决策人 + 经办人）
+    r = jpost("/biz/contact/create", dict(customerId=cust_id, name="王总", position="总经理",
+              mobile="13900009999", email="wang@test.com", remark="决策人"))
+    check("联系人-创建决策人", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/contact/create", dict(customerId=cust_id, name="李助理", position="采购助理",
+              mobile="13900008888", wechat="lizz001"))
+    check("联系人-创建经办人", r.json().get("code") == 0, r.text[:150])
+    # 冗余客户名称自动填充
+    r = jget("/biz/contact/page", params={"customerId": cust_id, "pageNo": 1, "pageSize": 10})
+    rows = r.json().get("data", {}).get("list", [])
+    check("联系人-客户名称冗余填充", len(rows) == 2
+          and all(row.get("customerName") == TAG + "联系人客" for row in rows), "rows=%d" % len(rows))
+    # 不存在的客户被拒
+    r = jpost("/biz/contact/create", dict(customerId=999999999, name="幽灵", mobile="13000000000"))
+    check("联系人-不存在客户被拒", r.json().get("code") != 0, r.text[:150])
+    # list-by-customer
+    r = jget("/biz/contact/list-by-customer", params={"customerId": cust_id})
+    check("联系人-按客户列表", r.json().get("code") == 0 and len(r.json().get("data", [])) == 2, r.text[:120])
+    # 更新：换职位
+    first = rows[0]["id"]
+    r = jput("/biz/contact/update", dict(id=first, customerId=cust_id, name="王总", position="董事长",
+              mobile="13900009999"))
+    check("联系人-更新职位", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/contact/get", params={"id": first})
+    check("联系人-更新生效", r.json().get("data", {}).get("position") == "董事长", r.text[:120])
+
+    # 线索转化自动落联系人
+    r = jpost("/biz/clue/create", dict(name=TAG + "联线客", contactName="赵经理", contactMobile="13700001111",
+              source="1"))
+    clue_id = r.json().get("data")
+    r = jput("/biz/clue/convert", params={"id": clue_id}, body=dict(businessName=TAG + "联商机"))
+    check("联系人-线索转化", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/customer/page", params={"customerName": TAG + "联线客", "pageNo": 1, "pageSize": 5})
+    conv_cust = r.json().get("data", {}).get("list", [])[0]["id"]
+    r = jget("/biz/contact/list-by-customer", params={"customerId": conv_cust})
+    conv_rows = r.json().get("data", [])
+    check("联系人-转化自动落联系人", len(conv_rows) == 1 and conv_rows[0].get("name") == "赵经理"
+          and conv_rows[0].get("mobile") == "13700001111", str(conv_rows[:1]))
+
+    # 清理
+    r = jget("/biz/contact/page", params={"customerName": TAG, "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/contact/delete", params={"id": row["id"]})
+    r = jget("/biz/clue/page", params={"name": TAG + "联线客", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/clue/delete", params={"id": row["id"]})
+    r = jget("/biz/business/page", params={"name": TAG + "联商机", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/business/delete", params={"id": row["id"]})
+    for cn in [TAG + "联系人客", TAG + "联线客"]:
+        r = jget("/biz/customer/page", params={"customerName": cn, "pageNo": 1, "pageSize": 5})
+        for row in r.json().get("data", {}).get("list", []):
+            jdelete("/biz/customer/delete", params={"id": row["id"]})
+    check("联系人-清理完成", True, "")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1410,6 +1482,7 @@ if __name__ == "__main__":
     test_return()
     test_register_flow()
     test_crm_funnel()
+    test_contact()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

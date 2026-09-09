@@ -46,6 +46,8 @@ public class ClueServiceImpl implements ClueService {
     @Resource
     private BusinessMapper businessMapper;
     @Resource
+    private com.enterprise.module.biz.dal.mysql.contact.ContactMapper contactMapper;
+    @Resource
     private AdminUserApi adminUserApi;
 
     @Override
@@ -112,7 +114,17 @@ public class ClueServiceImpl implements ClueService {
             customer.setStatus("0");
             customerMapper.insert(customer);
         }
-        // 2. 商机：初始阶段默认 1（初步接触）
+        // 2. 联系人：线索联系人落入客户联系人（决策人档案起点）
+        com.enterprise.module.biz.dal.dataobject.contact.ContactDO contact =
+                com.enterprise.module.biz.dal.dataobject.contact.ContactDO.builder()
+                        .customerId(customer.getId())
+                        .customerName(customer.getCustomerName())
+                        .name(clue.getContactName())
+                        .mobile(clue.getContactMobile())
+                        .remark("由线索「" + clue.getName() + "」转化")
+                        .build();
+        contactMapper.insert(contact);
+        // 3. 商机：初始阶段默认 1（初步接触）
         BusinessDO business = new BusinessDO();
         business.setName(convertReqVO.getBusinessName());
         business.setCustomerName(clue.getName());
@@ -123,7 +135,7 @@ public class ClueServiceImpl implements ClueService {
         business.setOwnerName(clue.getOwnerName());
         business.setRemark("由线索「" + clue.getName() + "」转化");
         businessMapper.insert(business);
-        // 3. 线索置为已转化并记录客户
+        // 4. 线索置为已转化并记录客户
         ClueDO update = new ClueDO();
         update.setId(id);
         update.setStatus(STATUS_CONVERTED);
