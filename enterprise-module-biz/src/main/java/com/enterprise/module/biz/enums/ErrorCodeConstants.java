@@ -25,6 +25,7 @@ public interface ErrorCodeConstants {
     ErrorCode CLUE_NOT_EXISTS = new ErrorCode(1_050_000_014, "销售线索不存在");
     ErrorCode BUSINESS_NOT_EXISTS = new ErrorCode(1_050_000_015, "商机不存在");
     ErrorCode CONTACT_NOT_EXISTS = new ErrorCode(1_050_000_016, "客户联系人不存在");
+    ErrorCode ANNOUNCEMENT_NOT_EXISTS = new ErrorCode(1_050_000_017, "公司公告不存在");
 
     // ========== 业务规则 1_050_001_XXX ==========
     ErrorCode STOCK_NOT_ENOUGH = new ErrorCode(1_050_001_001, "库存不足，无法出库，请先采购入库");
@@ -66,4 +67,5 @@ public interface ErrorCodeConstants {
     ErrorCode BUSINESS_STAGE_TERMINAL = new ErrorCode(1_050_001_037, "商机已赢单/输单，不能再修改");
     ErrorCode BUSINESS_CUSTOMER_NOT_EXISTS = new ErrorCode(1_050_001_038, "关联客户不存在");
     ErrorCode CONTACT_CUSTOMER_NOT_EXISTS = new ErrorCode(1_050_001_039, "关联客户不存在");
+    ErrorCode ANNOUNCEMENT_STATUS_INVALID = new ErrorCode(1_050_001_040, "公告状态不合法（仅 0=已发布 1=已下架）");
 }

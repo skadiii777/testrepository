@@ -1162,8 +1162,9 @@ def test_return():
     r = jpost("/biz/return/create", dict(returnType="2", orderId=pid_draft, quantity=1,
               returnDate=today, reason="草稿测试"))
     check("退货-草稿单退货被拒", r.json().get("code") != 0, r.text[:150])
-    # 类型不匹配拒绝：销售退货关联采购单（按销售单查不到该 id）
-    r = jpost("/biz/return/create", dict(returnType="1", orderId=pid, quantity=1,
+    # 类型不匹配拒绝：销售退货关联不存在的单据（sales/purchase 自增 id 空间可能重叠，
+    # 用固定不存在 id 保证走拒绝分支，避免恰好命中另一张表的同 id 单据）
+    r = jpost("/biz/return/create", dict(returnType="1", orderId=999999999, quantity=1,
               returnDate=today, reason="类型不匹配测试"))
     check("退货-类型与单据不匹配被拒", r.json().get("code") != 0, r.text[:150])
     # 执行销售退货：入库 +5
@@ -1458,6 +1459,77 @@ def test_contact():
     check("联系人-清理完成", True, "")
 
 
+# ---------------- 19. 公司公告 + 到期提醒 ----------------
+def test_announcement_expiry():
+    import datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    # 清残留
+    r = jget("/biz/announcement/page", params={"title": "[TEST]", "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/announcement/delete", params={"id": row["id"]})
+
+    # 1) 发布公告（默认已发布+发布日期今天）
+    r = jpost("/biz/announcement/create", dict(title="[TEST]国庆放假安排", type="2",
+              content="国庆 10 月 1 日至 7 日放假，祝大家节日快乐！", pinned="0"))
+    check("公告-发布", r.json().get("code") == 0, r.text[:150])
+    ann_id = r.json().get("data")
+    r = jget("/biz/announcement/get", params={"id": ann_id})
+    data = r.json().get("data", {})
+    check("公告-默认已发布+今日发布", data.get("status") == "0" and data.get("publishDate") == today,
+          str({k: data.get(k) for k in ("status", "publishDate")}))
+    # 2) 置顶公告后，list-latest 置顶排最前
+    r = jpost("/biz/announcement/create", dict(title="[TEST]全员大会通知", type="1",
+              content="本周五 15:00 全员大会，请准时参加。", pinned="1"))
+    pinned_id = r.json().get("data")
+    r = jget("/biz/announcement/list-latest", params={"limit": 10})
+    latest = r.json().get("data", [])
+    check("公告-工作台列表含新公告", any(a.get("id") == pinned_id for a in latest), r.text[:200])
+    check("公告-置顶排最前", latest and latest[0].get("id") == pinned_id, str(latest[:1]))
+    # 3) 下架后不再出现在 list-latest
+    r = jput("/biz/announcement/update", dict(id=pinned_id, title="[TEST]全员大会通知", type="1",
+              content="延期举行。", pinned="1", status="1"))
+    check("公告-下架", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/announcement/list-latest", params={"limit": 10})
+    check("公告-下架后不展示", not any(a.get("id") == pinned_id for a in r.json().get("data", [])),
+          r.text[:200])
+    # 4) 非法状态被拒
+    r = jput("/biz/announcement/update", dict(id=ann_id, title="[TEST]国庆放假安排", status="9"))
+    check("公告-非法状态被拒", r.json().get("code") != 0, r.text[:150])
+
+    # 5) 看板新增指标字段
+    r = jpost("/biz/dashboard/panel")
+    pdata = r.json().get("data", {})
+    check("看板-合同到期指标", "contractExpiringCount" in pdata and "businessOverdueCount" in pdata,
+          str({k: pdata.get(k) for k in ("contractExpiringCount", "businessOverdueCount")}))
+
+    # 6) 手动触达到期提醒：先造一条 7 天后到期的执行中合同
+    import datetime as _dt
+    end7 = (_dt.date.today() + _dt.timedelta(days=7)).strftime("%Y-%m-%d")
+    r = jpost("/biz/contract/create", dict(contractCode="HTEXP01", customerName="到期提醒客户",
+              productName=TAG + "到期货", amount=12000, signDate=today, startDate=today,
+              endDate=end7, status="1", owner="管理员"))
+    check("到期提醒-造到期合同", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/dashboard/expiry-reminder")
+    check("到期提醒-手动触发", r.json().get("code") == 0 and "HTEXP01" in r.json().get("data", ""),
+          r.text[:200])
+    r = jget("/system/notify-message/page", params={"pageNo": 1, "pageSize": 5, "readStatus": False})
+    msgs = r.json().get("data", {}).get("list", [])
+    hit = [m for m in msgs if "到期提醒" in (m.get("content") or m.get("templateContent") or "")]
+    check("到期提醒-站内信已落库", len(hit) >= 1
+          and "HTEXP01" in ((hit[0].get("content") or "") + (hit[0].get("templateContent") or "")),
+          r.text[:200])
+
+    # 清理
+    rid = find_id("contract", "contractCode", "HTEXP01")
+    if rid:
+        jdelete("/biz/contract/delete", params={"id": rid})
+    for aid in [ann_id, pinned_id]:
+        if aid:
+            jdelete("/biz/announcement/delete", params={"id": aid})
+    r = jget("/biz/announcement/page", params={"title": "[TEST]", "pageNo": 1, "pageSize": 20})
+    check("公告-清理完成", len(r.json().get("data", {}).get("list", [])) == 0, "残留公告")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1483,6 +1555,7 @@ if __name__ == "__main__":
     test_register_flow()
     test_crm_funnel()
     test_contact()
+    test_announcement_expiry()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

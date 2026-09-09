@@ -54,6 +54,10 @@ public class DashboardController {
     private ContractMapper contractMapper;
     @Resource
     private com.enterprise.module.biz.service.digest.BizDigestService digestService;
+    @Resource
+    private com.enterprise.module.biz.dal.mysql.business.BusinessMapper businessMapper;
+    @Resource
+    private com.enterprise.module.biz.service.expiry.BizExpiryReminderService expiryReminderService;
 
     @PostMapping("/panel")
     @Operation(summary = "核心指标卡")
@@ -80,6 +84,17 @@ public class DashboardController {
         data.put("monthPaid", paymentMapper.selectList(new QueryWrapper<PaymentDO>()
                 .eq("payment_type", "2").likeRight("payment_date", monthPrefix)).stream()
                 .map(PaymentDO::getAmount).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+        // 30 天内到期的执行中合同数
+        LocalDate today = LocalDate.now();
+        String todayStr = today.toString();
+        String endDateStr = today.plusDays(30).toString();
+        data.put("contractExpiringCount", contractMapper.selectList(new QueryWrapper<com.enterprise.module.biz.dal.dataobject.contract.ContractDO>()
+                .eq("status", "1")
+                .between("end_date", todayStr, endDateStr)).size());
+        // 超期未成交商机数（预计成交日已过且未赢单/输单）
+        data.put("businessOverdueCount", businessMapper.selectList(new QueryWrapper<com.enterprise.module.biz.dal.dataobject.business.BusinessDO>()
+                .lt("expected_date", todayStr)
+                .notIn("stage", "5", "6")).size());
         return success(data);
     }
 
@@ -124,6 +139,13 @@ public class DashboardController {
     @PreAuthorize("@ss.hasPermission('biz:dashboard:query')")
     public CommonResult<String> sendWeeklyDigest() {
         return success(digestService.sendWeeklyDigest());
+    }
+
+    @PostMapping("/expiry-reminder")
+    @Operation(summary = "手动触达到期提醒扫描（站内信，供测试/补发）")
+    @PreAuthorize("@ss.hasPermission('biz:dashboard:query')")
+    public CommonResult<String> runExpiryReminder() {
+        return success(expiryReminderService.runReminder());
     }
 
     @PostMapping("/status")
