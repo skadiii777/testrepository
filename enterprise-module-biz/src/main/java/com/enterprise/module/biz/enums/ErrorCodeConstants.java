@@ -22,6 +22,8 @@ public interface ErrorCodeConstants {
     ErrorCode LEAVEQUOTA_NOT_EXISTS = QUOTA_NOT_EXISTS; // 生成器命名别名
     ErrorCode REPORT_NOT_EXISTS = new ErrorCode(1_050_000_012, "汇报不存在");
     ErrorCode EXPENSE_NOT_EXISTS = new ErrorCode(1_050_000_013, "报销单不存在");
+    ErrorCode CLUE_NOT_EXISTS = new ErrorCode(1_050_000_014, "销售线索不存在");
+    ErrorCode BUSINESS_NOT_EXISTS = new ErrorCode(1_050_000_015, "商机不存在");
 
     // ========== 业务规则 1_050_001_XXX ==========
     ErrorCode STOCK_NOT_ENOUGH = new ErrorCode(1_050_001_001, "库存不足，无法出库，请先采购入库");
@@ -57,4 +59,9 @@ public interface ErrorCodeConstants {
     ErrorCode RETURN_QTY_EXCEED = new ErrorCode(1_050_001_031, "累计退货数量超出原单数量：已退 {}，原单数量 {}");
     ErrorCode RETURN_STATUS_INVALID = new ErrorCode(1_050_001_032, "退货单状态流转不合法");
     ErrorCode RETURN_QTY_INVALID = new ErrorCode(1_050_001_033, "退货数量必须大于0");
+    ErrorCode CLUE_ALREADY_CONVERTED = new ErrorCode(1_050_001_034, "该线索已转化，不能重复操作");
+    ErrorCode CLUE_STATUS_INVALID = new ErrorCode(1_050_001_035, "线索状态不合法（已转化/已无效为终态）");
+    ErrorCode BUSINESS_STAGE_INVALID = new ErrorCode(1_050_001_036, "商机阶段不合法");
+    ErrorCode BUSINESS_STAGE_TERMINAL = new ErrorCode(1_050_001_037, "商机已赢单/输单，不能再修改");
+    ErrorCode BUSINESS_CUSTOMER_NOT_EXISTS = new ErrorCode(1_050_001_038, "关联客户不存在");
 }

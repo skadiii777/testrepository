@@ -11,6 +11,15 @@ import org.apache.ibatis.annotations.Mapper;
 public interface CustomerMapper extends BaseMapperX<CustomerDO> {
 
     /**
+     * 按客户名称查询（线索转化/商机关联校验用）
+     */
+    default CustomerDO selectByName(String customerName) {
+        return selectOne(new LambdaQueryWrapperX<CustomerDO>()
+                .eq(CustomerDO::getCustomerName, customerName)
+                .last("LIMIT 1"));
+    }
+
+    /**
      * 分页查询
      */
     default PageResult<CustomerDO> selectPage(CustomerPageReqVO reqVO) {

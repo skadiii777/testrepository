@@ -1302,6 +1302,90 @@ def test_register_flow():
 
 
 
+# ---------------- 17. CRM 线索 + 商机（销售漏斗，对齐 yudao CRM Clue/Business） ----------------
+def test_crm_funnel():
+    # 清残留
+    r = jget("/biz/clue/page", params={"name": TAG + "线", "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/clue/delete", params={"id": row["id"]})
+    r = jget("/biz/business/page", params={"name": TAG + "商机", "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/business/delete", params={"id": row["id"]})
+    r = jget("/biz/customer/page", params={"customerName": TAG + "线客", "pageNo": 1, "pageSize": 20})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/customer/delete", params={"id": row["id"]})
+
+    # 1) 创建线索（负责人应自动=管理员）
+    r = jpost("/biz/clue/create", dict(name=TAG + "线客", contactName="张经理", contactMobile="13800000001",
+              source="2", remark="测试线索"))
+    check("CRM-线索创建", r.json().get("code") == 0, r.text[:150])
+    clue_id = r.json().get("data")
+    r = jget("/biz/clue/get", params={"id": clue_id})
+    clue = r.json().get("data", {})
+    check("CRM-线索默认待跟进+负责人", clue.get("status") == "0" and clue.get("ownerName") == "管理员",
+          str({k: clue.get(k) for k in ("status", "ownerName")}))
+    # 2) 状态流转：跟进中
+    r = jput("/biz/clue/update", dict(id=clue_id, name=TAG + "线客", contactName="张经理",
+              contactMobile="13800000001", source="2", status="1"))
+    check("CRM-线索跟进中", r.json().get("code") == 0, r.text[:150])
+    # 3) 转商机：应自动建客户+商机，线索置已转化
+    r = jput("/biz/clue/convert", params={"id": clue_id},
+             body=dict(businessName=TAG + "商机A", stage="1", amount=50000, expectedDate="2026-10-01"))
+    check("CRM-线索转商机", r.json().get("code") == 0, r.text[:150])
+    biz_a = r.json().get("data")
+    r = jget("/biz/clue/get", params={"id": clue_id})
+    check("CRM-线索已转化+记录客户", r.json().get("data", {}).get("status") == "2"
+          and r.json().get("data", {}).get("customerId"), r.text[:150])
+    r = jget("/biz/customer/page", params={"customerName": TAG + "线客", "pageNo": 1, "pageSize": 5})
+    check("CRM-转化自动建客户", r.json().get("code") == 0 and len(r.json().get("data", {}).get("list", [])) == 1,
+          r.text[:150])
+    r = jget("/biz/business/get", params={"id": biz_a})
+    check("CRM-转化自动建商机", r.json().get("data", {}).get("stage") == "1"
+          and float(r.json().get("data", {}).get("amount", 0)) == 50000.0, r.text[:150])
+    # 4) 重复转化被拒 + 已转化线索编辑被拒
+    r = jput("/biz/clue/convert", params={"id": clue_id}, body=dict(businessName=TAG + "商机X"))
+    check("CRM-重复转化被拒", r.json().get("code") != 0, r.text[:150])
+    r = jput("/biz/clue/update", dict(id=clue_id, name=TAG + "线客", contactName="张经理",
+              contactMobile="13800000001", status="1"))
+    check("CRM-已转化线索编辑被拒", r.json().get("code") != 0, r.text[:150])
+
+    # 5) 手工建商机挂在同一客户下，阶段推进到谈判协商
+    r = jpost("/biz/business/create", dict(name=TAG + "商机B", customerName=TAG + "线客",
+              stage="2", amount=30000, expectedDate="2026-11-15"))
+    check("CRM-商机创建", r.json().get("code") == 0, r.text[:150])
+    biz_b = r.json().get("data")
+    r = jput("/biz/business/update", dict(id=biz_b, name=TAG + "商机B", customerName=TAG + "线客",
+              stage="4", amount=32000))
+    check("CRM-商机阶段推进", r.json().get("code") == 0, r.text[:150])
+    # 6) 赢单终局：置赢单后再改被拒
+    r = jput("/biz/business/update", dict(id=biz_b, name=TAG + "商机B", customerName=TAG + "线客", stage="5"))
+    check("CRM-商机赢单", r.json().get("code") == 0, r.text[:150])
+    r = jput("/biz/business/update", dict(id=biz_b, name=TAG + "商机B", customerName=TAG + "线客", stage="2"))
+    check("CRM-赢单后修改被拒", r.json().get("code") != 0, r.text[:150])
+    # 7) 非法阶段 + 不存在客户被拒
+    r = jpost("/biz/business/create", dict(name=TAG + "商机C", customerName=TAG + "线客", stage="9"))
+    check("CRM-非法阶段被拒", r.json().get("code") != 0, r.text[:150])
+    r = jpost("/biz/business/create", dict(name=TAG + "商机C", customerName=TAG + "不存在的客户", stage="1"))
+    check("CRM-关联不存在客户被拒", r.json().get("code") != 0, r.text[:150])
+
+    # 8) 漏斗统计：赢单阶段至少 1 单 32000
+    r = jget("/biz/business/funnel-stats")
+    stats = {s.get("stage"): s for s in r.json().get("data", [])}
+    check("CRM-漏斗统计6阶段", r.json().get("code") == 0 and len(stats) == 6, r.text[:150])
+    check("CRM-漏斗赢单阶段金额", stats.get("5", {}).get("count", 0) >= 1
+          and float(stats.get("5", {}).get("totalAmount", 0)) >= 32000.0, str(stats.get("5")))
+
+    # 清理
+    for bid in [biz_a, biz_b]:
+        if bid:
+            jdelete("/biz/business/delete", params={"id": bid})
+    jdelete("/biz/clue/delete", params={"id": clue_id})
+    r = jget("/biz/customer/page", params={"customerName": TAG + "线客", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/customer/delete", params={"id": row["id"]})
+    check("CRM-清理完成", True, "")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1325,6 +1409,7 @@ if __name__ == "__main__":
     test_stockcheck()
     test_return()
     test_register_flow()
+    test_crm_funnel()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))
