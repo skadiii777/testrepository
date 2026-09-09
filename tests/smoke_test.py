@@ -1530,6 +1530,53 @@ def test_announcement_expiry():
     check("公告-清理完成", len(r.json().get("data", {}).get("list", [])) == 0, "残留公告")
 
 
+# ---------------- 20. 登录安全：单账号互踢 + 在线用户 ----------------
+def test_online_security():
+    # 1) admin 连续登录两次，旧会话应被踢
+    r = login("admin", "admin123")
+    check("登录安全-第一次登录", r.json().get("code") == 0, r.text[:120])
+    old_token = TOKEN["value"]
+    r = login("admin", "admin123")
+    check("登录安全-第二次登录", r.json().get("code") == 0, r.text[:120])
+    new_token = TOKEN["value"]
+    r = req("get", "/system/auth/get-permission-info",
+            headers={"Authorization": "Bearer " + old_token})
+    check("登录安全-旧会话已被踢", r.json().get("code") != 0, r.text[:120])
+    r = req("get", "/system/auth/get-permission-info",
+            headers={"Authorization": "Bearer " + new_token})
+    check("登录安全-新会话可用", r.json().get("code") == 0, r.text[:120])
+
+    # 2) 建一个临时用户作第二账号（密码随机生成）→ 登录 → 在线列表同时含两个账号
+    uname = "sec%d" % (int(time.time()) % 1000000)
+    pwd = "S" + str(int(time.time()))[-7:] + "xQ"
+    r = jpost("/system/user/create", dict(username=uname, nickname="登录安全测试", password=pwd,
+              deptId=103, mobile="138%08d" % (int(time.time()) % 100000000)))
+    check("登录安全-临时用户创建", r.json().get("code") == 0, r.text[:150])
+    tu_uid = r.json().get("data")
+    r = jpost("/system/auth/login", {"username": uname, "password": pwd})
+    check("登录安全-第二账号登录", r.json().get("code") == 0, r.text[:120])
+    tu_token = r.json()["data"]["accessToken"]
+    r = jget("/system/online-user/list")
+    rows = r.json().get("data", [])
+    users = {u.get("username") for u in rows}
+    check("登录安全-在线列表含两账号", "admin" in users and uname in users, str(users))
+    admin_row = next((u for u in rows if u.get("username") == "admin"), {})
+    check("登录安全-在线列表含昵称部门", admin_row.get("nickname") and admin_row.get("deptName"),
+          str(admin_row))
+
+    # 3) 强制下线临时用户 → 其令牌失效、可重新登录
+    r = jdelete("/system/online-user/kick", params={"userId": tu_uid, "userType": 2})
+    check("登录安全-强制下线", r.json().get("code") == 0, r.text[:120])
+    r = req("get", "/system/auth/get-permission-info",
+            headers={"Authorization": "Bearer " + tu_token})
+    check("登录安全-被踢账号已失效", r.json().get("code") != 0, r.text[:120])
+    r = jpost("/system/auth/login", {"username": uname, "password": pwd})
+    check("登录安全-被踢后可重新登录", r.json().get("code") == 0, r.text[:120])
+
+    # 清理临时用户
+    jdelete("/system/user/delete", params={"id": tu_uid})
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1556,6 +1603,7 @@ if __name__ == "__main__":
     test_crm_funnel()
     test_contact()
     test_announcement_expiry()
+    test_online_security()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

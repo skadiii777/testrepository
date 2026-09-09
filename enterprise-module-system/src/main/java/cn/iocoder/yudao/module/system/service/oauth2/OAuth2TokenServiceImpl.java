@@ -62,6 +62,9 @@ public class OAuth2TokenServiceImpl implements OAuth2TokenService {
     @Transactional(rollbackFor = Exception.class)
     public OAuth2AccessTokenDO createAccessToken(Long userId, Integer userType, String clientId, List<String> scopes) {
         OAuth2ClientDO clientDO = oauth2ClientService.validOAuthClientFromCache(clientId);
+        // 单账号单设备登录：同一账号仅保留最新会话，新登录时使旧会话（含刷新令牌）全部失效，
+        // 防止多人同时使用同一账号
+        removeAccessToken(userId, userType);
         // 创建刷新令牌
         OAuth2RefreshTokenDO refreshTokenDO = createOAuth2RefreshToken(userId, userType, clientDO, scopes);
         // 创建访问令牌
