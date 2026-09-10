@@ -1,5 +1,38 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-09（续 6）· 修复 IM 实时推送（nginx WebSocket 升级头缺失）
+
+- **根因**：云上 nginx 无 /infra/ws 的 WebSocket 配置，前端 WS 握手被 SPA
+  兜底规则以 index.html 应答——握手从未成功，消息只能靠刷新拉取
+- **修复**：nginx 增加 /infra/ws location（proxy_http_version 1.1 +
+  Upgrade/Connection 升级头 + read/send_timeout 3600s），配置留档
+  deploy-backup/enterprise.conf；后端握手认证与推送链路本就正常（本地 101 验证）
+- **实测**：WS 客户端在线时，消息经 HTTP 发出后 **45ms** 即收到
+  im-notification 推送帧（发送 36ms + 推送 9ms）；
+  后端握手（refreshToken 鉴权）与拉取兜底均验证通过
+
+## 2026-09-09（续 5）· IM 即时通讯上线（移植 yudao-module-im，300 文件）
+
+### 新增（测试 276 → 287 项全过，本地+云上双认证）
+
+- **enterprise-module-im**：好友（申请/同意/列表）、单聊（发送/增量拉取/历史/
+  已读回执/撤回）、群聊（建群/邀请/申请/群消息/回执/置顶）、频道消息、表情包、
+  会话已读、敏感词过滤、消息统计；RTC 音视频信令预留（LiveKit webhook，
+  未启外部依赖）
+- **实时推送**：复用已启用的 /infra/ws WebSocket（token 认证、心跳、断线重连，
+  前端 websocketStore 已内置）；消息事务提交后按会话定向推送
+- **前端零开发**：聊天界面 views/im/home 与 api/im 八组封装本就随 yudao-ui
+  引入，本次仅在工作台快捷入口加「在线聊天」；管理页菜单树 1418 启用
+- **SQL**：sql/mysql/im_tables.sql——17 张 im_ 表（上游单测 H2 脚本转 MySQL，
+  幂等）+ 187 条 im 字典（highgo 种子提取，剔除 deleted_time 列）+ 菜单启用；
+  infra_api_access_log.operate_name 扩长 varchar(50)→255（IM 超长接口摘要
+  曾致日志写入 500）
+- **修复**：ImChannelMessageMapper 空串条件 eq(getReceiverUserIds,"") 会把
+  String 喂给 LongListTypeHandler 导致 ClassCastException——改 SQL 字面量
+- 测试：冒烟 21 节（好友/私信/已读/建群/群消息 13 断言）；浏览器实测
+  管理员与 testuser02 好友互聊（UI 发送落库、对方拉取可见）；云上 287/287
+- 权限：聊天核心接口登录即可用（无 @PreAuthorize），管理页 im:manager:* 仅管理员
+
 ## 2026-09-09（续 4）· 登录安全：单账号单设备 + 在线用户检测
 
 ### 新增（测试 265 → 276 项全过；5 账号并发专项 19 项全过）

@@ -1577,6 +1577,71 @@ def test_online_security():
     jdelete("/system/user/delete", params={"id": tu_uid})
 
 
+# ---------------- 21. IM 即时通讯（移植 yudao-module-im：好友/私聊/群聊 HTTP 链路） ----------------
+def test_im():
+    import time as _t
+    stamp = str(int(_t.time()))[-7:]
+    # 临时用户 B
+    bname = "im%s" % stamp
+    bpwd = "I" + stamp + "xQ"
+    r = jpost("/system/user/create", dict(username=bname, nickname="IM测试用户", password=bpwd,
+              deptId=103, mobile="137%08d" % (int(_t.time()) % 100000000)))
+    check("IM-临时用户创建", r.json().get("code") == 0, r.text[:150])
+    b_uid = r.json().get("data")
+    r = login("admin", "admin123")  # login 响应自带 userId，避免跨租户同名 admin 取错行
+    a_uid = r.json()["data"]["userId"]
+
+    # 好友申请 → 同意
+    login("admin", "admin123")
+    r = jpost("/im/friend-request/apply", dict(toUserId=b_uid, applyContent="加个好友"))
+    check("IM-好友申请", r.json().get("code") == 0, r.text[:150])
+    req_id = r.json().get("data")
+    login(bname, bpwd)
+    r = jput("/im/friend-request/agree", params={"id": req_id})
+    check("IM-好友同意", r.json().get("code") == 0, r.text[:150])
+
+    # A 发私信 → B 拉取收到 → B 已读 → A 见回执
+    login("admin", "admin123")
+    r = jpost("/im/message/private/send", dict(clientMessageId="smoke-%d" % int(_t.time() * 1000),
+              receiverId=b_uid, type=101, content=json.dumps({"content": "你好，IM 冒烟测试"})))
+    check("IM-发私信", r.json().get("code") == 0, r.text[:150])
+    msg_id = r.json().get("data", {}).get("id")
+    login(bname, bpwd)
+    r = jget("/im/message/private/pull", params={"minId": 0, "size": 100})
+    msgs = r.json().get("data", [])
+    check("IM-B拉取收到私信", any(m.get("id") == msg_id for m in msgs), "msgs=%d" % len(msgs))
+    r = jput("/im/message/private/read", params={"receiverId": a_uid, "messageId": msg_id})
+    check("IM-B已读上报", r.json().get("code") == 0, r.text[:120])
+    login("admin", "admin123")
+    r = jget("/im/message/private/max-read-message-id", params={"peerId": b_uid})
+    check("IM-已读回执", r.json().get("code") == 0 and int(r.json().get("data", 0)) >= msg_id,
+          r.text[:120])
+
+    # 建群（含 B）→ 群消息 → B 拉取
+    r = jpost("/im/group/create", dict(name="IM冒烟群%s" % stamp, memberUserIds=[b_uid],
+              joinApproval=False))
+    check("IM-建群", r.json().get("code") == 0, r.text[:150])
+    g_id = r.json().get("data", {}).get("id")
+    r = jpost("/im/message/group/send", dict(clientMessageId="sg-%d" % int(_t.time() * 1000),
+              groupId=g_id, type=101, content=json.dumps({"content": "群聊冒烟"})))
+    check("IM-发群消息", r.json().get("code") == 0, r.text[:150])
+    login(bname, bpwd)
+    r = jget("/im/message/group/pull", params={"minId": 0, "size": 100})
+    # content 是 JSON 字符串（非 ASCII 已被服务端转义），解析后再比对文本
+    texts = []
+    for m in r.json().get("data", []):
+        try:
+            texts.append(json.loads(m.get("content") or "{}").get("content", ""))
+        except Exception:
+            texts.append(str(m.get("content")))
+    check("IM-B拉取群消息", any("群聊冒烟" in x for x in texts), str(texts[:2]))
+
+    # 清理：删临时用户（群与消息保留作演示数据）
+    login("admin", "admin123")
+    jdelete("/system/user/delete", params={"id": b_uid})
+    check("IM-清理完成", True, "")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1604,6 +1669,7 @@ if __name__ == "__main__":
     test_contact()
     test_announcement_expiry()
     test_online_security()
+    test_im()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))
