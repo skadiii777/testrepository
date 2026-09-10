@@ -45,4 +45,9 @@ public interface BusinessService {
      */
     List<BusinessFunnelRespVO> getFunnelStats();
 
+    /**
+     * 赢单商机一键转合同：带入客户/金额/负责人，合同编号自动生成，返回合同 id
+     */
+    Long convertToContract(Long id, com.enterprise.module.biz.controller.admin.business.vo.business.BusinessContractConvertReqVO convertReqVO);
+
 }

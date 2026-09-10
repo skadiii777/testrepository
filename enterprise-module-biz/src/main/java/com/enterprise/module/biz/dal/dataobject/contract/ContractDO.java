@@ -2,6 +2,7 @@ package com.enterprise.module.biz.dal.dataobject.contract;
 
 import com.enterprise.framework.tenant.core.db.TenantBaseDO;
 import com.baomidou.mybatisplus.annotation.KeySequence;
+import com.baomidou.mybatisplus.annotation.TableField;
 import java.math.BigDecimal;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -45,5 +46,13 @@ public class ContractDO extends TenantBaseDO {
     private String owner;
     /**合同状态*/
     private String status;
+    /**备注（如转化来源）*/
+    private String remark;
+
+    /**
+     * 已回款金额（非表字段：由收付款流水按 contract_id 汇总填充）
+     */
+    @TableField(exist = false)
+    private BigDecimal receivedAmount;
 
 }

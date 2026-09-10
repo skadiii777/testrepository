@@ -20,8 +20,7 @@ public class PaymentSaveReqVO {
     @NotEmpty(message = "关联单据类型不能为空")
     private String bizType;
 
-    @Schema(description = "关联单据 id", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "关联单据不能为空")
+    @Schema(description = "关联单据 id（与合同二选一：登记单据收付款必填；纯合同回款可空）")
     private Long orderId;
 
     @Schema(description = "金额", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -31,6 +30,9 @@ public class PaymentSaveReqVO {
 
     @Schema(description = "收付方式")
     private String paymentMethod;
+
+    @Schema(description = "关联合同 id（收款时可选拉通合同回款进度）")
+    private Long contractId;
 
     @Schema(description = "收付日期", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotEmpty(message = "收付日期不能为空")

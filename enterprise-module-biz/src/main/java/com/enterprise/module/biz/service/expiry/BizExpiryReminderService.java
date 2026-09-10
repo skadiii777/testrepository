@@ -50,6 +50,8 @@ public class BizExpiryReminderService {
     @Resource
     private BusinessMapper businessMapper;
     @Resource
+    private com.enterprise.module.biz.dal.mysql.stock.StockMapper stockMapper;
+    @Resource
     private NotifyMessageSendApi notifyMessageSendApi;
 
     /**
@@ -84,7 +86,21 @@ public class BizExpiryReminderService {
                     contract.getAmount() == null ? "0" : contract.getAmount().stripTrailingZeros().toPlainString()));
         }
 
-        // 2. 商机超期未成交（预计成交日已过且未到终局）——仅周一提醒
+        // 2. 低库存预警：现存量 ≤ 预警下限的产品，随每日提醒一并推送
+        List<com.enterprise.module.biz.dal.dataobject.stock.StockDO> lowStocks =
+                stockMapper.selectList(new QueryWrapper<>(new com.enterprise.module.biz.dal.dataobject.stock.StockDO())
+                        .apply("quantity <= min_quantity")
+                        .gt("min_quantity", 0));
+        for (com.enterprise.module.biz.dal.dataobject.stock.StockDO stock : lowStocks) {
+            long suggest = stock.getMinQuantity() == null ? 0
+                    : Math.max(stock.getMinQuantity() - (stock.getQuantity() == null ? 0 : stock.getQuantity()), 0);
+            lines.add(String.format("产品「%s」（%s）库存 %d 件，低于预警下限 %d 件，建议补货 %d 件",
+                    stock.getProductName(), stock.getWarehouse(),
+                    stock.getQuantity() == null ? 0 : stock.getQuantity(),
+                    stock.getMinQuantity() == null ? 0 : stock.getMinQuantity(), suggest));
+        }
+
+        // 3. 商机超期未成交（预计成交日已过且未到终局）——仅周一提醒
         if (today.getDayOfWeek() == DayOfWeek.MONDAY) {
             List<BusinessDO> businesses = businessMapper.selectList(new QueryWrapper<>(new BusinessDO())
                     .lt("expected_date", today.format(fmt))

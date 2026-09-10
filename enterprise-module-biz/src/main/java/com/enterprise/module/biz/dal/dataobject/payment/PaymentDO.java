@@ -63,6 +63,10 @@ public class PaymentDO extends TenantBaseDO {
      */
     private String paymentDate;
     /**
+     * 关联合同 id（收款可选挂合同，用于合同回款进度；退货红冲流水也带此字段）
+     */
+    private Long contractId;
+    /**
      * 备注
      */
     private String remark;

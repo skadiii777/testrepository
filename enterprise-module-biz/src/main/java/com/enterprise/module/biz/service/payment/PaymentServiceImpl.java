@@ -44,6 +44,8 @@ public class PaymentServiceImpl implements PaymentService {
     private SalesMapper salesMapper;
     @Resource
     private PurchaseMapper purchaseMapper;
+    @Resource
+    private com.enterprise.module.biz.dal.mysql.contract.ContractMapper contractMapper;
 
     @Override
     public Long createPayment(PaymentSaveReqVO createReqVO) {
@@ -56,35 +58,54 @@ public class PaymentServiceImpl implements PaymentService {
         if (isReceipt != BIZ_TYPE_SALES.equals(bizType)) {
             throw exception(PAYMENT_TYPE_BIZ_MISMATCH);
         }
-        // 1.2 校验单据存在且已完成（库存联动在"完成"流转，完成后才可收付款）
+        // 1.2 关联目标二选一：挂单据（原强校验链）或挂合同（纯合同回款，如收定金）
         BigDecimal totalAmount;
         String orderCode;
         String partyName;
-        if (BIZ_TYPE_SALES.equals(bizType)) {
-            SalesDO sales = salesMapper.selectById(createReqVO.getOrderId());
-            if (sales == null) {
-                throw exception(PAYMENT_ORDER_NOT_EXISTS);
+        if (createReqVO.getOrderId() != null) {
+            if (BIZ_TYPE_SALES.equals(bizType)) {
+                SalesDO sales = salesMapper.selectById(createReqVO.getOrderId());
+                if (sales == null) {
+                    throw exception(PAYMENT_ORDER_NOT_EXISTS);
+                }
+                validateOrderCompleted(sales.getStatus());
+                totalAmount = resolveTotalAmount(sales.getQuantity(), sales.getPrice(), sales.getTotalAmount());
+                orderCode = sales.getSalesCode();
+                partyName = sales.getCustomerName();
+            } else {
+                PurchaseDO purchase = purchaseMapper.selectById(createReqVO.getOrderId());
+                if (purchase == null) {
+                    throw exception(PAYMENT_ORDER_NOT_EXISTS);
+                }
+                validateOrderCompleted(purchase.getStatus());
+                totalAmount = resolveTotalAmount(purchase.getQuantity(), purchase.getPrice(), purchase.getTotalAmount());
+                orderCode = purchase.getPurchaseCode();
+                partyName = purchase.getSupplierName();
             }
-            validateOrderCompleted(sales.getStatus());
-            totalAmount = resolveTotalAmount(sales.getQuantity(), sales.getPrice(), sales.getTotalAmount());
-            orderCode = sales.getSalesCode();
-            partyName = sales.getCustomerName();
+            // 1.3 校验累计收付金额不超过单据总额（纯合同回款无单据总额约束）
+            BigDecimal paidSum = paymentMapper.selectPaidSumByOrder(bizType, createReqVO.getOrderId());
+            if (paidSum.add(createReqVO.getAmount()).compareTo(totalAmount) > 0) {
+                throw exception(PAYMENT_AMOUNT_EXCEED,
+                        paidSum.stripTrailingZeros().toPlainString(),
+                        totalAmount.stripTrailingZeros().toPlainString());
+            }
+        } else if (createReqVO.getContractId() != null) {
+            orderCode = null;
+            partyName = null;
         } else {
-            PurchaseDO purchase = purchaseMapper.selectById(createReqVO.getOrderId());
-            if (purchase == null) {
-                throw exception(PAYMENT_ORDER_NOT_EXISTS);
-            }
-            validateOrderCompleted(purchase.getStatus());
-            totalAmount = resolveTotalAmount(purchase.getQuantity(), purchase.getPrice(), purchase.getTotalAmount());
-            orderCode = purchase.getPurchaseCode();
-            partyName = purchase.getSupplierName();
+            throw exception(PAYMENT_TARGET_REQUIRED);
         }
-        // 1.3 校验累计收付金额不超过单据总额
-        BigDecimal paidSum = paymentMapper.selectPaidSumByOrder(bizType, createReqVO.getOrderId());
-        if (paidSum.add(createReqVO.getAmount()).compareTo(totalAmount) > 0) {
-            throw exception(PAYMENT_AMOUNT_EXCEED,
-                    paidSum.stripTrailingZeros().toPlainString(),
-                    totalAmount.stripTrailingZeros().toPlainString());
+        // 1.4 挂合同时校验合同存在；纯合同回款时对方名称取合同客户
+        if (createReqVO.getContractId() != null) {
+            com.enterprise.module.biz.dal.dataobject.contract.ContractDO contract =
+                    contractMapper.selectById(createReqVO.getContractId());
+            if (contract == null) {
+                throw exception(PAYMENT_CONTRACT_NOT_EXISTS);
+            }
+            if (partyName == null) {
+                partyName = contract.getCustomerName();
+                orderCode = contract.getContractCode();
+            }
         }
 
         // 2. 插入流水（只增不删改）

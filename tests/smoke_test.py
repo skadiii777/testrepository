@@ -1642,6 +1642,105 @@ def test_im():
     check("IM-清理完成", True, "")
 
 
+# ---------------- 22. 模块联动增强（赢单转合同/低库存提醒/合同回款/退货红冲） ----------------
+def test_linkage():
+    import datetime as _dt
+    import json as _json
+    today = _dt.date.today().strftime("%Y-%m-%d")
+    end_year = (_dt.date.today() + _dt.timedelta(days=365)).strftime("%Y-%m-%d")
+    # 清残留
+    for mod, key, val in [("business", "name", TAG + "联动商机"), ("contract", "customerName", TAG + "联动客")]:
+        r = jget("/biz/%s/page" % mod, params={key: val, "pageNo": 1, "pageSize": 10})
+        for row in r.json().get("data", {}).get("list", []):
+            jdelete("/biz/%s/delete" % mod, params={"id": row["id"]})
+
+    # ---------- ① 商机赢单转合同 ----------
+    r = jpost("/biz/customer/create", dict(customerName=TAG + "联动客", contactPerson="钱总",
+              phone="13611112222", status="0"))
+    check("联动-客户创建", r.json().get("code") == 0, r.text[:120])
+    r = jpost("/biz/business/create", dict(name=TAG + "联动商机", customerName=TAG + "联动客",
+              stage="4", amount=80000, expectedDate=today))
+    check("联动-商机创建", r.json().get("code") == 0, r.text[:120])
+    biz_id = r.json().get("data")
+    # 未赢单转合同被拒
+    r = jpost("/biz/business/convert-to-contract", params={"id": biz_id},
+              body=dict(productName=TAG + "联动产品"))
+    check("联动-未赢单转合同被拒", r.json().get("code") != 0, r.text[:150])
+    # 置赢单后一键转合同
+    r = jput("/biz/business/update", dict(id=biz_id, name=TAG + "联动商机",
+              customerName=TAG + "联动客", stage="5", amount=80000))
+    check("联动-置赢单", r.json().get("code") == 0, r.text[:120])
+    r = jpost("/biz/business/convert-to-contract", params={"id": biz_id},
+              body=dict(productName=TAG + "联动产品"))
+    check("联动-赢单转合同", r.json().get("code") == 0, r.text[:150])
+    ct_id = r.json().get("data")
+    r = jget("/biz/contract/get", params={"id": ct_id})
+    ct = r.json().get("data", {})
+    check("联动-合同带入商机信息", ct.get("customerName") == TAG + "联动客"
+          and float(ct.get("amount", 0)) == 80000.0 and ct.get("owner") == "管理员"
+          and str(ct.get("contractCode", "")).startswith("HT"), str(ct)[:200])
+
+    # ---------- ③ 合同回款进度 ----------
+    r = jpost("/biz/payment/create", dict(paymentType="1", bizType="1",
+              amount=30000, paymentDate=today, contractId=ct_id, remark="纯合同回款（未挂单据）"))
+    check("联动-收款挂合同", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/contract/get", params={"id": ct_id})
+    check("联动-合同回款进度", float(r.json().get("data", {}).get("receivedAmount", 0)) == 30000.0,
+          r.text[:150])
+    # 挂不存在合同被拒
+    r = jpost("/biz/payment/create", dict(paymentType="1", bizType="1", orderId=1,
+              amount=1, paymentDate=today, contractId=999999999))
+    check("联动-挂不存在合同被拒", r.json().get("code") != 0, r.text[:150])
+
+    # ---------- ④ 退货红冲 ----------
+    r = jpost("/biz/product/create", dict(productCode="R-LINK", productName=TAG + "联动货",
+              category="测试", unit="个", price=4, status="0"))
+    r = jpost("/biz/purchase/create", dict(purchaseCode="CGLINK01", supplierName="联动供应商",
+              productName=TAG + "联动货", quantity=50, price=4, purchaseDate=today))
+    pid = r.json().get("data") or find_id("purchase", "purchaseCode", "CGLINK01")
+    jpost("/biz/purchase/transition", params={"id": pid, "action": "confirm"})
+    jpost("/biz/purchase/complete", params={"id": pid})
+    r = jpost("/biz/payment/create", dict(paymentType="2", bizType="2", orderId=pid,
+              amount=200, paymentMethod="2", paymentDate=today, remark="红冲前付款200"))
+    check("联动-付款200", r.json().get("code") == 0, r.text[:150])
+    # 退货 10 件（货值 40）并执行 → 自动红字付款 -40
+    r = jpost("/biz/return/create", dict(returnType="2", orderId=pid, quantity=10,
+              returnDate=today, reason="联动红冲测试"))
+    ret_id = r.json().get("data")
+    r = jput("/biz/return/execute", params={"id": ret_id})
+    check("联动-退货执行", r.json().get("code") == 0, r.text[:150])
+    r = jget("/biz/payment/paid-sum", params={"bizType": "2", "orderId": pid})
+    check("联动-红冲后付款余额160", float(r.json().get("data", 0)) == 160.0, r.text[:150])
+
+    # ---------- ② 低库存提醒 ----------
+    # 造低库存：把 R-LINK 库存压到低于下限（下限设 30）
+    r = jget("/biz/stock/page", params={"productName": TAG + "联动货", "pageNo": 1, "pageSize": 5})
+    row = r.json().get("data", {}).get("list", [])[0]
+    r = jput("/biz/stock/update", dict(id=row["id"], productName=TAG + "联动货",
+              warehouse=row["warehouse"], quantity=10, minQuantity=30))
+    check("联动-造低库存", r.json().get("code") == 0, r.text[:150])
+    _link_stock_id = row["id"]
+    r = jpost("/biz/dashboard/expiry-reminder")
+    check("联动-低库存进提醒", r.json().get("code") == 0 and TAG + "联动货" in r.json().get("data", ""),
+          r.text[:200])
+
+    # 清理（红字流水/盘点痕迹保留；低库存行必须删除，否则污染「预警-补货解除」断言）
+    jdelete("/biz/stock/delete", params={"id": _link_stock_id})
+    jdelete("/biz/return/delete", params={"id": ret_id})
+    jdelete("/biz/contract/delete", params={"id": ct_id})
+    jdelete("/biz/business/delete", params={"id": biz_id})
+    rid = find_id("purchase", "purchaseCode", "CGLINK01")
+    if rid:
+        jdelete("/biz/purchase/delete", params={"id": rid})
+    rid2 = find_id("product", "productCode", "R-LINK")
+    if rid2:
+        jdelete("/biz/product/delete", params={"id": rid2})
+    r = jget("/biz/customer/page", params={"customerName": TAG + "联动客", "pageNo": 1, "pageSize": 5})
+    for row in r.json().get("data", {}).get("list", []):
+        jdelete("/biz/customer/delete", params={"id": row["id"]})
+    check("联动-清理完成", True, "")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1670,6 +1769,7 @@ if __name__ == "__main__":
     test_announcement_expiry()
     test_online_security()
     test_im()
+    test_linkage()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

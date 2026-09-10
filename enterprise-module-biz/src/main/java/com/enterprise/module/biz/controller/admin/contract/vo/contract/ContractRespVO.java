@@ -32,6 +32,9 @@ public class ContractRespVO {
     @Schema(description = "合同状态")
     private String status;
 
+    @Schema(description = "已回款金额（收款流水挂合同的汇总）")
+    private java.math.BigDecimal receivedAmount;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 }

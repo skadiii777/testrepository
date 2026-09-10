@@ -4,6 +4,7 @@ import com.enterprise.framework.common.pojo.PageResult;
 import com.enterprise.framework.common.util.object.BeanUtils;
 import com.enterprise.module.biz.controller.admin.returnorder.vo.returnorder.ReturnPageReqVO;
 import com.enterprise.module.biz.controller.admin.returnorder.vo.returnorder.ReturnSaveReqVO;
+import com.enterprise.module.biz.dal.dataobject.payment.PaymentDO;
 import com.enterprise.module.biz.dal.dataobject.purchase.PurchaseDO;
 import com.enterprise.module.biz.dal.dataobject.returnorder.ReturnDO;
 import com.enterprise.module.biz.dal.dataobject.sales.SalesDO;
@@ -54,6 +55,8 @@ public class ReturnServiceImpl implements ReturnService {
     private SalesMapper salesMapper;
     @Resource
     private PurchaseMapper purchaseMapper;
+    @Resource
+    private com.enterprise.module.biz.dal.mysql.payment.PaymentMapper paymentMapper;
     @Resource
     private StockService stockService;
 
@@ -162,10 +165,39 @@ public class ReturnServiceImpl implements ReturnService {
         if (!ok) {
             throw exception(STOCK_NOT_ENOUGH);
         }
+        // 红字收付款：冲减原单已收付（不超原单累计已收付），让资金口径与货权一致
+        autoRedFlash(ret);
         ReturnDO update = new ReturnDO();
         update.setId(id);
         update.setStatus(RETURN_STATUS_RETURNED);
         returnMapper.updateById(update);
+    }
+
+    /**
+     * 退货红冲：销售退货冲收款、采购退货冲付款；红冲金额 = min(退货货值, 原单累计已收付)
+     */
+    private void autoRedFlash(ReturnDO ret) {
+        boolean isSales = RETURN_TYPE_SALES.equals(ret.getReturnType());
+        String bizType = isSales ? "1" : "2";
+        BigDecimal paid = paymentMapper.selectPaidSumByOrder(bizType, ret.getOrderId());
+        if (paid.signum() <= 0 || ret.getTotalAmount() == null
+                || ret.getTotalAmount().signum() <= 0) {
+            return; // 原单没收过款 / 退货无货值，无需红冲
+        }
+        BigDecimal red = ret.getTotalAmount().min(paid);
+        PaymentDO flash = new PaymentDO();
+        flash.setPaymentNo("HK" + java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+        flash.setPaymentType(isSales ? "1" : "2");
+        flash.setBizType(bizType);
+        flash.setOrderId(ret.getOrderId());
+        flash.setOrderCode(ret.getOrderCode());
+        flash.setPartyName(ret.getPartyName());
+        flash.setAmount(red.negate());
+        flash.setPaymentDate(java.time.LocalDate.now().toString());
+        flash.setRemark("退货红冲：" + ret.getReturnNo());
+        paymentMapper.insert(flash);
+        log.info("[autoRedFlash] 退货 {} 生成红字收付款 {} 元（原单 {}）", ret.getReturnNo(), red, ret.getOrderCode());
     }
 
     @Override

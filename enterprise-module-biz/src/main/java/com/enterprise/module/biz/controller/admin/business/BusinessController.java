@@ -74,6 +74,15 @@ public class BusinessController {
         return success(BeanUtils.toBean(pageResult, BusinessRespVO.class));
     }
 
+    @PostMapping("/convert-to-contract")
+    @Operation(summary = "赢单商机一键转合同（带入客户/金额/负责人，合同编号自动生成）")
+    @Parameter(name = "id", description = "商机编号", required = true)
+    @PreAuthorize("@ss.hasPermission('biz:business:update')")
+    public CommonResult<Long> convertToContract(@RequestParam("id") Long id,
+            @Valid @RequestBody com.enterprise.module.biz.controller.admin.business.vo.business.BusinessContractConvertReqVO convertReqVO) {
+        return success(businessService.convertToContract(id, convertReqVO));
+    }
+
     @GetMapping("/funnel-stats")
     @Operation(summary = "销售漏斗统计（各阶段数量与预期金额）")
     @PreAuthorize("@ss.hasPermission('biz:business:query')")

@@ -5,7 +5,9 @@ import com.enterprise.framework.common.util.object.BeanUtils;
 import com.enterprise.module.biz.controller.admin.contract.vo.contract.ContractPageReqVO;
 import com.enterprise.module.biz.controller.admin.contract.vo.contract.ContractSaveReqVO;
 import com.enterprise.module.biz.dal.dataobject.contract.ContractDO;
+import com.enterprise.module.biz.dal.dataobject.payment.PaymentDO;
 import com.enterprise.module.biz.dal.mysql.contract.ContractMapper;
+import com.enterprise.module.biz.dal.mysql.payment.PaymentMapper;
 import com.enterprise.module.biz.enums.ErrorCodeConstants;
 import com.enterprise.framework.mybatis.core.query.LambdaQueryWrapperX;
 import jakarta.annotation.Resource;
@@ -27,6 +29,8 @@ public class ContractServiceImpl implements ContractService {
 
     @Resource
     private ContractMapper contractMapper;
+    @Resource
+    private PaymentMapper paymentMapper;
 
     @Override
     public Long createContract(ContractSaveReqVO createReqVO) {
@@ -58,11 +62,26 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public ContractDO getContract(Long id) {
-        return contractMapper.selectById(id);
+        return fillReceivedAmount(contractMapper.selectById(id));
     }
 
     @Override
     public PageResult<ContractDO> getContractPage(ContractPageReqVO pageReqVO) {
-        return contractMapper.selectPage(pageReqVO);
+        PageResult<ContractDO> pageResult = contractMapper.selectPage(pageReqVO);
+        pageResult.getList().forEach(this::fillReceivedAmount);
+        return pageResult;
+    }
+
+    /**
+     * 回款进度：汇总挂到该合同的收款金额（收付款可选挂合同）
+     */
+    private ContractDO fillReceivedAmount(ContractDO contract) {
+        if (contract == null || contract.getId() == null) {
+            return contract;
+        }
+        contract.setReceivedAmount(paymentMapper.selectListByContract(contract.getId()).stream()
+                .map(PaymentDO::getAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+        return contract;
     }
 }

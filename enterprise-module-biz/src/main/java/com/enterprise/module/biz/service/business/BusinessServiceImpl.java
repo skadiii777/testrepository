@@ -8,12 +8,14 @@ import com.enterprise.module.biz.controller.admin.business.vo.business.BusinessS
 import com.enterprise.module.biz.dal.dataobject.business.BusinessDO;
 import com.enterprise.module.biz.dal.dataobject.customer.CustomerDO;
 import com.enterprise.module.biz.dal.mysql.business.BusinessMapper;
+import com.enterprise.module.biz.dal.mysql.contract.ContractMapper;
 import com.enterprise.module.biz.dal.mysql.customer.CustomerMapper;
 import com.enterprise.module.system.api.user.AdminUserApi;
 import com.enterprise.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -49,6 +51,8 @@ public class BusinessServiceImpl implements BusinessService {
     private BusinessMapper businessMapper;
     @Resource
     private CustomerMapper customerMapper;
+    @Resource
+    private ContractMapper contractMapper;
     @Resource
     private AdminUserApi adminUserApi;
 
@@ -111,6 +115,34 @@ public class BusinessServiceImpl implements BusinessService {
             result.add(vo);
         }
         return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long convertToContract(Long id,
+                                  com.enterprise.module.biz.controller.admin.business.vo.business.BusinessContractConvertReqVO convertReqVO) {
+        BusinessDO business = validateBusinessExists(id);
+        if (!STAGE_WIN.equals(business.getStage())) {
+            throw exception(BUSINESS_NOT_WIN);
+        }
+        // 组装合同：客户/金额/负责人带入商机；编号自动生成避免重号
+        java.time.LocalDate today = java.time.LocalDate.now();
+        com.enterprise.module.biz.dal.dataobject.contract.ContractDO contract =
+                com.enterprise.module.biz.dal.dataobject.contract.ContractDO.builder()
+                        .contractCode("HT" + today.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                + java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HHmmss")))
+                        .customerName(business.getCustomerName())
+                        .productName(convertReqVO.getProductName())
+                        .amount(business.getAmount())
+                        .signDate(today.toString())
+                        .startDate(convertReqVO.getStartDate() != null ? convertReqVO.getStartDate() : today.toString())
+                        .endDate(convertReqVO.getEndDate() != null ? convertReqVO.getEndDate() : today.plusYears(1).toString())
+                        .owner(business.getOwnerName())
+                        .status("1") // 执行中
+                        .remark("由商机「" + business.getName() + "」转化")
+                        .build();
+        contractMapper.insert(contract);
+        return contract.getId();
     }
 
     private void validateStage(String stage) {

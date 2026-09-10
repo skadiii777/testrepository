@@ -40,4 +40,12 @@ public interface PaymentMapper extends BaseMapperX<PaymentDO> {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * 汇总挂到指定合同的收款金额（合同回款进度）
+     */
+    default List<PaymentDO> selectListByContract(Long contractId) {
+        return selectList(new LambdaQueryWrapperX<PaymentDO>()
+                .eq(PaymentDO::getContractId, contractId));
+    }
+
 }

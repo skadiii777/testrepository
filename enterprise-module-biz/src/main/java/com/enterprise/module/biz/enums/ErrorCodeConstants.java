@@ -68,4 +68,7 @@ public interface ErrorCodeConstants {
     ErrorCode BUSINESS_CUSTOMER_NOT_EXISTS = new ErrorCode(1_050_001_038, "关联客户不存在");
     ErrorCode CONTACT_CUSTOMER_NOT_EXISTS = new ErrorCode(1_050_001_039, "关联客户不存在");
     ErrorCode ANNOUNCEMENT_STATUS_INVALID = new ErrorCode(1_050_001_040, "公告状态不合法（仅 0=已发布 1=已下架）");
+    ErrorCode BUSINESS_NOT_WIN = new ErrorCode(1_050_001_041, "仅已赢单的商机可以转为合同");
+    ErrorCode PAYMENT_CONTRACT_NOT_EXISTS = new ErrorCode(1_050_001_042, "关联合同不存在");
+    ErrorCode PAYMENT_TARGET_REQUIRED = new ErrorCode(1_050_001_043, "收付款必须关联单据或合同其一");
 }

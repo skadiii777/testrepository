@@ -47,6 +47,9 @@ public class PaymentRespVO {
     @ExcelProperty("收付方式")
     private String paymentMethod;
 
+    @Schema(description = "关联合同 id")
+    private Long contractId;
+
     @Schema(description = "收付日期")
     @ExcelProperty("收付日期")
     private String paymentDate;
