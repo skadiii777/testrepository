@@ -14,9 +14,16 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface StockCheckMapper extends BaseMapperX<StockCheckDO> {
+    /** Current read; caller must hold a transaction. Tenant and logical-delete filters still apply. */
+    default StockCheckDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<StockCheckDO>().eq(StockCheckDO::getId, id).last("FOR UPDATE"));
+    }
+
 
     default PageResult<StockCheckDO> selectPage(StockCheckPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<StockCheckDO>()
+                .eqIfPresent(StockCheckDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(StockCheckDO::getWarehouseId, reqVO.getWarehouseId())
                 .likeIfPresent(StockCheckDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(StockCheckDO::getStatus, reqVO.getStatus())
                 .betweenIfPresent(StockCheckDO::getCheckDate, reqVO.getCheckDateRange())

@@ -31,6 +31,8 @@ public class StockCheckDO extends TenantBaseDO {
     /**
      * 产品名称
      */
+    private Long productId;
+    private Long warehouseId;
     private String productName;
     /**
      * 仓库

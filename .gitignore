@@ -65,3 +65,8 @@ deploy-backup/application-pro.yaml
 
 # Python 字节码
 __pycache__/
+
+application-private.properties
+migration-issues.json
+migration-mapping.json
+generated/

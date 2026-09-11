@@ -11,12 +11,19 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface SalesMapper extends BaseMapperX<SalesDO> {
+    /** Current read; caller must hold a transaction. Tenant and logical-delete filters still apply. */
+    default SalesDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<SalesDO>().eq(SalesDO::getId, id).last("FOR UPDATE"));
+    }
+
 
     /**
      * 分页查询
      */
     default PageResult<SalesDO> selectPage(SalesPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<SalesDO>()
+                .eqIfPresent(SalesDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(SalesDO::getWarehouseId, reqVO.getWarehouseId())
                 .likeIfPresent(SalesDO::getSalesCode, reqVO.getSalesCode())
                 .likeIfPresent(SalesDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(SalesDO::getSalesDate, reqVO.getSalesDate())

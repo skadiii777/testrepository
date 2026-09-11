@@ -33,6 +33,7 @@ public class LeaveServiceImpl implements LeaveService {
     private LeaveMapper leaveMapper;
     @Resource
     private LeaveQuotaService leaveQuotaService;
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     @Resource
     private BpmProcessInstanceApi processInstanceApi;
@@ -44,7 +45,10 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     public Long createLeave(LeaveSaveReqVO createReqVO) {
+        if (createReqVO.getDays() == null || createReqVO.getDays().signum() <= 0) throw exception(LEAVE_DAYS_INVALID);
         LeaveDO leave = BeanUtils.toBean(createReqVO, LeaveDO.class);
+        var employee = references.employee(leave.getEmployeeId(),leave.getEmpName());
+        leave.setEmployeeId(employee.getId()); leave.setEmpName(employee.getEmpName());
         leave.setStatus("0"); // 强制初始状态，防止客户端篡改
         leaveMapper.insert(leave);
         // 尝试发起 BPM 流程；未部署流程模型时降级为本地直批模式（状态仍由 auditLeave 驱动）
@@ -70,38 +74,33 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updateLeaveStatusFromBpm(Long id, Integer status) {
-        // BPM 状态映射：APPROVE(2)=已通过扣余额，REJECT(3)=已驳回
-        LeaveDO leave = leaveMapper.selectById(id);
-        if (leave == null) {
-            return;
-        }
-        LeaveDO update = new LeaveDO();
-        update.setId(id);
-        if (Integer.valueOf(2).equals(status)) {
-            update.setStatus("1");
-            leaveQuotaService.deductUsedDays(leave.getEmpName(), leave.getLeaveType(),
-                    yearOf(leave.getStartDate()), leave.getDays());
-        } else if (Integer.valueOf(3).equals(status)) {
-            update.setStatus("2");
-        }
-        leaveMapper.updateById(update);
+        if (!Integer.valueOf(2).equals(status) && !Integer.valueOf(3).equals(status)) return;
+        LeaveDO leave = leaveMapper.selectForUpdate(id);
+        if (leave == null) return;
+        String target = Integer.valueOf(2).equals(status) ? "1" : "2";
+        // Replayed BPM events have no side effects.
+        if (leaveMapper.updateStatusCas(id, target, null) == 0) return;
+        if ("1".equals(target)) leaveQuotaService.deductUsedDays(leave.getEmployeeId(),leave.getLeaveType(),
+                yearOf(leave.getStartDate()),leave.getDays());
     }
 
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void auditLeave(Long id, String status, String auditRemark) {
-        LeaveDO leave = leaveMapper.selectById(id);
+        LeaveDO leave = leaveMapper.selectForUpdate(id);
         if (leave == null) {
             throw exception(LEAVE_NOT_EXISTS);
         }
+        if (!"1".equals(status) && !"2".equals(status)) throw exception(EXPENSE_AUDIT_STATUS_INVALID);
         // CAS 防重：仅待审批(0)可流转；重复审批/并发审批只会有一个成功
         int rows = leaveMapper.updateStatusCas(id, status, auditRemark);
         if (rows == 0) {
             throw exception(LEAVE_ALREADY_AUDITED);
         }
         if ("1".equals(status)) {
-            leaveQuotaService.deductUsedDays(leave.getEmpName(), leave.getLeaveType(),
+            leaveQuotaService.deductUsedDays(leave.getEmployeeId(), leave.getLeaveType(),
                     yearOf(leave.getStartDate()), leave.getDays());
         }
     }
@@ -109,7 +108,7 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void cancelLeave(Long id, Long loginUserId) {
-        LeaveDO leave = leaveMapper.selectById(id);
+        LeaveDO leave = leaveMapper.selectForUpdate(id);
         if (leave == null) {
             throw exception(LEAVE_NOT_EXISTS);
         }
@@ -123,7 +122,7 @@ public class LeaveServiceImpl implements LeaveService {
         if (leaveMapper.updateStatusByCas(id, "1", "3", "员工申请销假（提前返岗）") == 0) {
             throw exception(LEAVE_ALREADY_AUDITED);
         }
-        leaveQuotaService.refundUsedDays(leave.getEmpName(), leave.getLeaveType(),
+        leaveQuotaService.refundUsedDays(leave.getEmployeeId(), leave.getLeaveType(),
                 yearOf(leave.getStartDate()), leave.getDays());
     }
 
@@ -132,16 +131,25 @@ public class LeaveServiceImpl implements LeaveService {
                 : String.valueOf(java.time.Year.now().getValue());
     }
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updateLeave(LeaveSaveReqVO updateReqVO) {
-        validateLeaveExists(updateReqVO.getId());
+        LeaveDO old = leaveMapper.selectForUpdate(updateReqVO.getId());
+        if (old == null) throw exception(LEAVE_NOT_EXISTS);
+        if (!"0".equals(old.getStatus())) throw exception(LEAVE_ALREADY_AUDITED);
+        if (updateReqVO.getDays() != null && updateReqVO.getDays().signum() <= 0) throw exception(LEAVE_DAYS_INVALID);
         LeaveDO updateObj = BeanUtils.toBean(updateReqVO, LeaveDO.class);
+        updateObj.setEmployeeId(old.getEmployeeId()); updateObj.setEmpName(old.getEmpName()); updateObj.setStatus(null);
+        updateObj.setProcessInstanceId(null);
         leaveMapper.updateById(updateObj);
     }
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteLeave(Long id) {
-        validateLeaveExists(id);
+        LeaveDO leave = leaveMapper.selectForUpdate(id);
+        if (leave == null) throw exception(LEAVE_NOT_EXISTS);
+        if (!"0".equals(leave.getStatus())) throw exception(LEAVE_ALREADY_AUDITED);
         leaveMapper.deleteById(id);
     }
 

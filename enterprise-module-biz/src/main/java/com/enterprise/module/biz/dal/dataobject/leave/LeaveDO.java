@@ -28,6 +28,7 @@ public class LeaveDO extends TenantBaseDO {
     @TableId
     private Long id;
     /**员工姓名*/
+    private Long employeeId;
     private String empName;
     /**请假类型*/
     private String leaveType;

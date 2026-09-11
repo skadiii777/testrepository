@@ -20,6 +20,9 @@ public class SalesPageReqVO extends PageParam {
     @Schema(description = "销售单号")
     private String salesCode;
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     @Schema(description = "销售日期")
     private String salesDate;

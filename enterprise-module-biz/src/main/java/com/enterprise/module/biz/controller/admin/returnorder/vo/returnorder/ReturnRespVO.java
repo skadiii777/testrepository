@@ -37,6 +37,8 @@ public class ReturnRespVO {
 
     @Schema(description = "产品名称")
     @ExcelProperty("产品名称")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
 
     @Schema(description = "仓库")

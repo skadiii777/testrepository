@@ -16,6 +16,8 @@ public interface StockMapper extends BaseMapperX<StockDO> {
      */
     default PageResult<StockDO> selectPage(StockPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<StockDO>()
+                .eqIfPresent(StockDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(StockDO::getWarehouseId, reqVO.getWarehouseId())
                 .likeIfPresent(StockDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(StockDO::getWarehouse, reqVO.getWarehouse())
                 .betweenIfPresent(StockDO::getCreateTime, reqVO.getCreateTime())
@@ -32,10 +34,10 @@ public interface StockMapper extends BaseMapperX<StockDO> {
     /**
      * 按产品+仓库精确查询
      */
-    default StockDO selectByProductAndWarehouse(String productName, String warehouse) {
+    default StockDO selectByProductAndWarehouse(Long productId, Long warehouseId) {
         return selectOne(new LambdaQueryWrapperX<StockDO>()
-                .eq(StockDO::getProductName, productName)
-                .eq(StockDO::getWarehouse, warehouse)
-                .last("LIMIT 1"));
+                .eq(StockDO::getProductId, productId)
+                .eq(StockDO::getWarehouseId, warehouseId)
+                .last("FOR UPDATE"));
     }
 }

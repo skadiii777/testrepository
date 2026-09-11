@@ -70,6 +70,7 @@ public class PortalController {
     private AttendanceCorrectionService correctionService;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     private Integer otMinutes(String now, String workEnd) {
         int nowMin = Integer.parseInt(now.substring(0, 2)) * 60 + Integer.parseInt(now.substring(3));
@@ -102,8 +103,9 @@ public class PortalController {
                 displayName(), String.valueOf(LocalDate.now().getYear())
                         + String.format("%02d", LocalDate.now().getMonthValue())));
         Map<String, Object> quotaMap = new LinkedHashMap<>();
-        for (String type : Arrays.asList("1", "2", "3", "4")) {
-            BigDecimal remain = quotaService.findRemainDays(displayName(), type, String.valueOf(LocalDate.now().getYear()));
+        var linkedEmployee = references.findEmployeeForUser(loginUserId());
+        for (String type : linkedEmployee == null ? java.util.Collections.<String>emptyList() : Arrays.asList("1", "2", "3", "4")) {
+            BigDecimal remain = quotaService.findRemainDays(linkedEmployee.getId(), type, String.valueOf(LocalDate.now().getYear()));
             if (remain.compareTo(new BigDecimal("99999")) < 0) {
                 quotaMap.put(type, remain);
             }
@@ -180,11 +182,13 @@ public class PortalController {
         String year = createReqVO.getStartDate() != null && createReqVO.getStartDate().length() >= 4
                 ? createReqVO.getStartDate().substring(0, 4) : String.valueOf(LocalDate.now().getYear());
         BigDecimal days = createReqVO.getDays() == null ? BigDecimal.ZERO : createReqVO.getDays();
-        BigDecimal remain = quotaService.findRemainDays(displayName(), createReqVO.getLeaveType(), year);
+        BigDecimal remain = quotaService.findRemainDays(references.employeeForUser(loginUserId()).getId(), createReqVO.getLeaveType(), year);
         if (days.compareTo(BigDecimal.ZERO) > 0 && remain.compareTo(days) < 0) {
             throw exception(LEAVE_QUOTA_NOT_ENOUGH);
         }
-        createReqVO.setEmpName(displayName());
+        var employee = references.employeeForUser(loginUserId());
+        createReqVO.setEmployeeId(employee.getId());
+        createReqVO.setEmpName(employee.getEmpName());
         createReqVO.setStatus("0");
         return success(leaveService.createLeave(createReqVO));
     }

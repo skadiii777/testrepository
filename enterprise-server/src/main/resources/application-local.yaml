@@ -57,7 +57,7 @@ spring:
           #          url: jdbc:postgresql://127.0.0.1:5432/postgres # OpenGauss 连接的示例
           #          url: jdbc:postgresql://127.0.0.1:5866/ruoyi-vue-pro # 瀚高 HighGo 连接的示例
           username: root
-          password: 123456
+          password: ${ENTERPRISE_LOCAL_SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD:}
           #          username: sa # SQL Server 连接的示例
           #          password: Yudao@2024 # SQL Server 连接的示例
           #          username: SYSDBA # DM 连接的示例
@@ -70,7 +70,7 @@ spring:
           lazy: true # 开启懒加载，保证启动速度
           url: jdbc:mysql://127.0.0.1:3306/enterprise-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true&nullCatalogMeansCurrent=true
           username: root
-          password: 123456
+          password: ${ENTERPRISE_LOCAL_SPRING_DATASOURCE_DYNAMIC_DATASOURCE_SLAVE_PASSWORD:}
 #        tdengine: # IoT 数据库（需要 IoT 物联网再开启噢！）
 #          lazy: true # 开启懒加载，保证启动速度
 #          url: jdbc:TAOS-WS://127.0.0.1:6041/ruoyi_vue_pro?varcharAsString=true&enableAutoReconnect=true # 参见：https://t.zsxq.com/qaX9c，开启 TDengine WebSocket 自动重连
@@ -131,7 +131,7 @@ spring:
     host: 127.0.0.1 # RabbitMQ 服务的地址
     port: 5672 # RabbitMQ 服务的端口
     username: rabbit # RabbitMQ 服务的账号
-    password: rabbit # RabbitMQ 服务的密码
+    password: ${ENTERPRISE_LOCAL_SPRING_RABBITMQ_PASSWORD:}
   # Kafka 配置项，对应 KafkaProperties 配置类
   kafka:
     bootstrap-servers: 127.0.0.1:9092 # 指定 Kafka Broker 地址，可以设置多个，以逗号分隔
@@ -163,7 +163,7 @@ spring:
         instance:
           service-host-type: IP # 注册实例时，优先使用 IP [IP, HOST_NAME, CANONICAL_HOST_NAME]
         username: admin
-        password: admin
+        password: ${ENTERPRISE_LOCAL_SPRING_BOOT_ADMIN_CLIENT_PASSWORD:}
       # Spring Boot Admin Server 服务端的相关配置
       context-path: /admin # 配置 Spring
       # 允许嵌入 iframe 的域名（支持通配符），实际部署时，可以改为 "'self' [你的公网域名]"
@@ -210,7 +210,7 @@ wx:
 #    app-id: wx5b23ba7a5589ecbb # 测试号（自己的）
 #    secret: 2a7b3b20c537e52e74afd395eb85f61f
     app-id: wxf56b1542b9e85f8a # 测试号（Kongdy 提供的）
-    secret: 496379dcef1ba869e9234de8d598cfd3
+    secret: ${ENTERPRISE_LOCAL_WX_MP_SECRET:}
     # 存储配置，解决 AccessToken 的跨节点的共享
     config-storage:
       type: RedisTemplate # 采用 RedisTemplate 操作 Redis，会自动从 Spring 中获取
@@ -222,7 +222,7 @@ wx:
 #    appid: wx63c280fe3248a3e7 # wenhualian的接口测试号
 #    secret: 6f270509224a7ae1296bbf1c8cb97aed
     appid: wxc4598c446f8a9cb3 # 测试号（Kongdy 提供的）
-    secret: 4a1a04e07f6a4a0751b39c3064a92c8b
+    secret: ${ENTERPRISE_LOCAL_WX_MINIAPP_SECRET:}
 #    appid: wx66186af0759f47c9 # 测试号（puhui 提供的）
 #    secret: 3218bcbd112cbc614c7264ceb20144ac
     config-storage:
@@ -256,11 +256,11 @@ justauth:
   type:
     DINGTALK: # 钉钉
       client-id: dingvrnreaje3yqvzhxg
-      client-secret: i8E6iZyDvZj51JIb0tYsYfVQYOks9Cq1lgryEjFRqC79P3iJcrxEwT6Qk2QvLrLI
+      client-secret: ${ENTERPRISE_LOCAL_JUSTAUTH_TYPE_DINGTALK_CLIENT_SECRET:}
       ignore-check-redirect-uri: true
     WECHAT_ENTERPRISE: # 企业微信
       client-id: wwd411c69a39ad2e54
-      client-secret: 1wTb7hYxnpT2TUbIeHGXGo7T0odav1ic10mLdyyATOw
+      client-secret: ${ENTERPRISE_LOCAL_JUSTAUTH_TYPE_WECHAT_ENTERPRISE_CLIENT_SECRET:}
       agent-id: 1000004
       ignore-check-redirect-uri: true
     # noinspection SpringBootApplicationYaml
@@ -275,7 +275,7 @@ justauth:
       ignore-check-redirect-uri: true
     ALIPAY: # 支付宝小程序
       client-id: xx
-      client-secret: xx
+      client-secret: ${ENTERPRISE_LOCAL_JUSTAUTH_TYPE_ALIPAY_CLIENT_SECRET:}
       alipay-public-key: xx
       ignore-check-redirect-uri: true
       ignore-check-state: true

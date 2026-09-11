@@ -129,8 +129,7 @@ public class BusinessServiceImpl implements BusinessService {
         java.time.LocalDate today = java.time.LocalDate.now();
         com.enterprise.module.biz.dal.dataobject.contract.ContractDO contract =
                 com.enterprise.module.biz.dal.dataobject.contract.ContractDO.builder()
-                        .contractCode("HT" + today.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
-                                + java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HHmmss")))
+                        .contractCode(com.enterprise.module.biz.service.support.BizDocumentNo.next("HT"))
                         .customerName(business.getCustomerName())
                         .productName(convertReqVO.getProductName())
                         .amount(business.getAmount())

@@ -73,4 +73,13 @@ public interface ErrorCodeConstants {
     ErrorCode PAYMENT_TARGET_REQUIRED = new ErrorCode(1_050_001_043, "收付款必须关联单据或合同其一");
     ErrorCode ORDER_COMPLETED_LOCKED = new ErrorCode(1_050_001_044, "已完成单据不可修改或删除，请走退货/红冲流程");
     ErrorCode LEAVE_ALREADY_AUDITED = new ErrorCode(1_050_001_045, "该申请已审批，不能重复操作");
+    ErrorCode LEAVE_DAYS_INVALID = new ErrorCode(1_050_001_054, "请假天数必须大于0");
+    ErrorCode PAYMENT_DELETE_FORBIDDEN = new ErrorCode(1_050_001_046, "流水不可删除，请填写原因后冲销");
+    ErrorCode PAYMENT_REVERSAL_INVALID = new ErrorCode(1_050_001_047, "流水不可冲销，可能已红冲或余额不足");
+    ErrorCode PAYMENT_REASON_REQUIRED = new ErrorCode(1_050_001_048, "请填写200字以内的冲销原因");
+    ErrorCode PAYMENT_REQUEST_CONFLICT = new ErrorCode(1_050_001_049, "请求编号已用于其他收付款内容");
+    ErrorCode PAYMENT_AMOUNT_INVALID = new ErrorCode(1_050_001_050, "收付金额必须大于零");
+    ErrorCode MASTER_REFERENCE_INVALID = new ErrorCode(1_050_001_051, "基础资料不存在或名称不唯一，请选择明确的编号");
+    ErrorCode STOCK_DUPLICATE = new ErrorCode(1_050_001_052, "该产品在此仓库已有库存记录");
+    ErrorCode STOCK_IDENTITY_LOCKED = new ErrorCode(1_050_001_053, "库存关联不可更换；数量调整请使用盘点");
 }

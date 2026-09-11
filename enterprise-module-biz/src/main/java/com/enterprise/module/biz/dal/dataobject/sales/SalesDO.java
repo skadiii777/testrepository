@@ -32,6 +32,9 @@ public class SalesDO extends TenantBaseDO {
     /**客户*/
     private String customerName;
     /**产品名称*/
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     /**销售数量*/
     private Long quantity;

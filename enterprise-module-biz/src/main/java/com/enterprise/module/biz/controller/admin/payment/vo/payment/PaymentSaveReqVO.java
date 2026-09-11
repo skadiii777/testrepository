@@ -41,4 +41,8 @@ public class PaymentSaveReqVO {
     @Schema(description = "备注")
     private String remark;
 
+    @jakarta.validation.constraints.Size(max = 64)
+    @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]+", message = "请求编号格式不合法")
+    private String requestId;
+
 }

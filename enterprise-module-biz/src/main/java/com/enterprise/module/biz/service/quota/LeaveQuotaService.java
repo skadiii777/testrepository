@@ -40,15 +40,15 @@ public interface LeaveQuotaService {
     /**
      * 查询剩余天数，无配额记录返回足够大值（不限额）
      */
-    java.math.BigDecimal findRemainDays(String empName, String leaveType, String year);
+    java.math.BigDecimal findRemainDays(Long employeeId, String leaveType, String year);
 
     /**
      * 原子扣减已用天数（余额不足抛异常）
      */
-    void deductUsedDays(String empName, String leaveType, String year, java.math.BigDecimal days);
+    void deductUsedDays(Long employeeId, String leaveType, String year, java.math.BigDecimal days);
 
     /**
      * 原子返还已用天数
      */
-    void refundUsedDays(String empName, String leaveType, String year, java.math.BigDecimal days);
+    void refundUsedDays(Long employeeId, String leaveType, String year, java.math.BigDecimal days);
 }

@@ -13,6 +13,8 @@ import lombok.ToString;
 public class StockCheckPageReqVO extends PageParam {
 
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
 
     @Schema(description = "状态（0=待确认 1=已确认）")

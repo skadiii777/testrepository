@@ -1,0 +1,5 @@
+pymysql
+requests
+websocket-client
+paramiko
+bcrypt

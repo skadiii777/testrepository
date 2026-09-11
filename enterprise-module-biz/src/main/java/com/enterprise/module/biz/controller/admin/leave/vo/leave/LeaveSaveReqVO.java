@@ -16,6 +16,7 @@ public class LeaveSaveReqVO {
 
     @Schema(description = "员工姓名")
     
+    private Long employeeId;
     private String empName;
     @Schema(description = "请假类型", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message="请假类型不能为空")
@@ -28,6 +29,7 @@ public class LeaveSaveReqVO {
     private String endDate;
     @Schema(description = "请假天数", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message="请假天数不能为空")
+    @jakarta.validation.constraints.Positive(message="请假天数必须大于0")
     private BigDecimal days;
     @Schema(description = "请假事由")
     

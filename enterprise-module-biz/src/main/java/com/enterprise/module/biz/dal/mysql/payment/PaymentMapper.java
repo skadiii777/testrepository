@@ -17,6 +17,21 @@ import java.util.List;
  */
 @Mapper
 public interface PaymentMapper extends BaseMapperX<PaymentDO> {
+    default PaymentDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<PaymentDO>().eq(PaymentDO::getId, id).last("FOR UPDATE"));
+    }
+    default PaymentDO selectByRequestId(String requestId) {
+        return selectOne(new LambdaQueryWrapperX<PaymentDO>().eq(PaymentDO::getRequestId, requestId).last("FOR UPDATE"));
+    }
+    default List<PaymentDO> selectCurrentByOrder(String type, Long orderId) {
+        return selectList(new LambdaQueryWrapperX<PaymentDO>().eq(PaymentDO::getBizType, type)
+                .eq(PaymentDO::getOrderId, orderId).orderByAsc(PaymentDO::getId).last("FOR UPDATE"));
+    }
+    default List<PaymentDO> selectCurrentByContract(Long contractId) {
+        return selectList(new LambdaQueryWrapperX<PaymentDO>().eq(PaymentDO::getContractId, contractId)
+                .orderByAsc(PaymentDO::getId).last("FOR UPDATE"));
+    }
+
 
     default PageResult<PaymentDO> selectPage(PaymentPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<PaymentDO>()

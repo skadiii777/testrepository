@@ -9,12 +9,16 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface LeaveMapper extends BaseMapperX<LeaveDO> {
+    default LeaveDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<LeaveDO>().eq(LeaveDO::getId,id).last("FOR UPDATE"));
+    }
 
     /**
      * 分页查询
      */
     default PageResult<LeaveDO> selectPage(LeavePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<LeaveDO>()
+                .eqIfPresent(LeaveDO::getEmployeeId, reqVO.getEmployeeId())
                 .likeIfPresent(LeaveDO::getEmpName, reqVO.getEmpName())
                 .eqIfPresent(LeaveDO::getLeaveType, reqVO.getLeaveType())
                 .eqIfPresent(LeaveDO::getStartDate, reqVO.getStartDate())

@@ -14,6 +14,7 @@ public class EmployeeRespVO {
     private Long id;
 
     @Schema(description = "工号")
+    private Long userId;
     private String empNo;
     @Schema(description = "姓名")
     private String empName;

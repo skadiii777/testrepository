@@ -32,6 +32,9 @@ public class PurchaseDO extends TenantBaseDO {
     /**供应商*/
     private String supplierName;
     /**产品名称*/
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     /**采购数量*/
     private Long quantity;

@@ -24,6 +24,7 @@ import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class PurchaseServiceImpl implements PurchaseService {
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     @Resource
     private PurchaseMapper purchaseMapper;
@@ -35,6 +36,10 @@ public class PurchaseServiceImpl implements PurchaseService {
     @Override
     public Long createPurchase(PurchaseSaveReqVO createReqVO) {
         PurchaseDO purchase = BeanUtils.toBean(createReqVO, PurchaseDO.class);
+        var product = references.product(purchase.getProductId(), purchase.getProductName());
+        var warehouse = references.warehouse(purchase.getWarehouseId(), purchase.getWarehouse());
+        purchase.setProductId(product.getId()); purchase.setProductName(product.getProductName());
+        purchase.setWarehouseId(warehouse.getId()); purchase.setWarehouse(warehouse.getName());
         purchase.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
         purchase.setTotalAmount(java.math.BigDecimal.valueOf(purchase.getQuantity()).multiply(purchase.getPrice())); // 总金额服务端强算，不信前端
         purchaseMapper.insert(purchase);
@@ -68,7 +73,8 @@ public class PurchaseServiceImpl implements PurchaseService {
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void completePurchase(Long id) {
-        PurchaseDO purchase = validatePurchaseExists(id);
+        PurchaseDO purchase = purchaseMapper.selectForUpdate(id);
+        if (purchase == null) throw exception(PURCHASE_NOT_EXISTS);
         if (!"1".equals(purchase.getStatus())) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
@@ -76,7 +82,7 @@ public class PurchaseServiceImpl implements PurchaseService {
         if (purchaseMapper.updateStatusByCas(id, "1", "2") == 0) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
-        stockService.changeStock(purchase.getProductName(), "默认仓库", purchase.getQuantity(),
+        stockService.changeStock(purchase.getProductId(), purchase.getWarehouseId(), purchase.getQuantity(),
                 "purchase", purchase.getPurchaseCode());
         PurchaseDO update = new PurchaseDO();
         update.setId(id);
@@ -84,17 +90,23 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchaseMapper.updateById(update);
     }
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updatePurchase(PurchaseSaveReqVO updateReqVO) {
-        validatePurchaseExists(updateReqVO.getId());
+        PurchaseDO exist = purchaseMapper.selectForUpdate(updateReqVO.getId());
+        if (exist == null) throw exception(PURCHASE_NOT_EXISTS);
         // 已完成单据与库存流水绑定，禁止修改；纠错走退货/红冲
-        if ("2".equals(purchaseMapper.selectById(updateReqVO.getId()).getStatus())) {
+        if ("2".equals(exist.getStatus())) {
             throw exception(ORDER_COMPLETED_LOCKED);
         }
         PurchaseDO updateObj = BeanUtils.toBean(updateReqVO, PurchaseDO.class);
+        var product = references.product(updateReqVO.getProductId() != null ? updateReqVO.getProductId() : exist.getProductId(), updateReqVO.getProductName());
+        var warehouse = references.warehouse(updateReqVO.getWarehouseId() != null ? updateReqVO.getWarehouseId() : exist.getWarehouseId(), updateReqVO.getWarehouse());
+        updateObj.setProductId(product.getId()); updateObj.setProductName(product.getProductName());
+        updateObj.setWarehouseId(warehouse.getId()); updateObj.setWarehouse(warehouse.getName());
         updateObj.setStatus(null); // 状态只能通过流转接口变更
         // 总金额服务端强算：数量/单价留空取库内原值，且不信前端传入的 totalAmount
         updateObj.setTotalAmount(null);
-        PurchaseDO current = purchaseMapper.selectById(updateReqVO.getId());
+        PurchaseDO current = exist;
         if (current != null) {
             Long qty = updateObj.getQuantity() != null ? updateObj.getQuantity() : current.getQuantity();
             java.math.BigDecimal price = updateObj.getPrice() != null ? updateObj.getPrice() : current.getPrice();
@@ -109,10 +121,12 @@ public class PurchaseServiceImpl implements PurchaseService {
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deletePurchase(Long id) {
-        validatePurchaseExists(id);
+        PurchaseDO locked = purchaseMapper.selectForUpdate(id);
+        if (locked == null) throw exception(PURCHASE_NOT_EXISTS);
         // 已完成单据与库存流水绑定，禁止删除
-        if ("2".equals(purchaseMapper.selectById(id).getStatus())) {
+        if ("2".equals(locked.getStatus())) {
             throw exception(ORDER_COMPLETED_LOCKED);
         }
         purchaseMapper.deleteById(id);

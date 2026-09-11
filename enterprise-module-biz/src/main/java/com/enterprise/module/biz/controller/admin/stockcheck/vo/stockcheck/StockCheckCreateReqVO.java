@@ -12,7 +12,8 @@ import jakarta.validation.constraints.NotNull;
 public class StockCheckCreateReqVO {
 
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotEmpty(message = "产品名称不能为空")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
 
     @Schema(description = "仓库（默认默认仓库）")

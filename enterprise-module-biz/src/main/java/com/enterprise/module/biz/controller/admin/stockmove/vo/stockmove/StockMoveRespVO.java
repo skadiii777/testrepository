@@ -14,6 +14,8 @@ public class StockMoveRespVO {
     private Long id;
 
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
     @Schema(description = "仓库")
     private String warehouse;

@@ -24,6 +24,7 @@ import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class SalesServiceImpl implements SalesService {
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     @Resource
     private SalesMapper salesMapper;
@@ -35,6 +36,10 @@ public class SalesServiceImpl implements SalesService {
     @Override
     public Long createSales(SalesSaveReqVO createReqVO) {
         SalesDO sales = BeanUtils.toBean(createReqVO, SalesDO.class);
+        var product = references.product(sales.getProductId(), sales.getProductName());
+        var warehouse = references.warehouse(sales.getWarehouseId(), sales.getWarehouse());
+        sales.setProductId(product.getId()); sales.setProductName(product.getProductName());
+        sales.setWarehouseId(warehouse.getId()); sales.setWarehouse(warehouse.getName());
         sales.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
         sales.setTotalAmount(java.math.BigDecimal.valueOf(sales.getQuantity()).multiply(sales.getPrice())); // 总金额服务端强算，不信前端
         salesMapper.insert(sales);
@@ -68,7 +73,8 @@ public class SalesServiceImpl implements SalesService {
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void completeSales(Long id) {
-        SalesDO sales = validateSalesExists(id);
+        SalesDO sales = salesMapper.selectForUpdate(id);
+        if (sales == null) throw exception(SALES_NOT_EXISTS);
         if (!"1".equals(sales.getStatus())) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
@@ -76,8 +82,7 @@ public class SalesServiceImpl implements SalesService {
         if (salesMapper.updateStatusByCas(id, "1", "2") == 0) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
-        validateStockEnough(sales.getProductName(), sales.getQuantity());
-        boolean ok = stockService.changeStock(sales.getProductName(), "默认仓库", -sales.getQuantity(),
+        boolean ok = stockService.changeStock(sales.getProductId(), sales.getWarehouseId(), -sales.getQuantity(),
                 "sales", sales.getSalesCode());
         if (!ok) {
             throw exception(STOCK_NOT_ENOUGH);
@@ -90,23 +95,29 @@ public class SalesServiceImpl implements SalesService {
 
     @Override
     public void validateStockEnough(String productName, Long quantity) {
-        Long qty = stockService.findQuantity(productName, "默认仓库");
+        Long qty = stockService.findQuantity(references.product(null, productName).getId(), references.warehouse(null, null).getId());
         if (quantity == null || qty == null || qty < quantity) {
             throw exception(STOCK_NOT_ENOUGH);
         }
     }
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updateSales(SalesSaveReqVO updateReqVO) {
-        validateSalesExists(updateReqVO.getId());
+        SalesDO exist = salesMapper.selectForUpdate(updateReqVO.getId());
+        if (exist == null) throw exception(SALES_NOT_EXISTS);
         // 已完成单据与库存流水绑定，禁止修改；纠错走退货/红冲
-        if ("2".equals(salesMapper.selectById(updateReqVO.getId()).getStatus())) {
+        if ("2".equals(exist.getStatus())) {
             throw exception(ORDER_COMPLETED_LOCKED);
         }
         SalesDO updateObj = BeanUtils.toBean(updateReqVO, SalesDO.class);
+        var product = references.product(updateReqVO.getProductId() != null ? updateReqVO.getProductId() : exist.getProductId(), updateReqVO.getProductName());
+        var warehouse = references.warehouse(updateReqVO.getWarehouseId() != null ? updateReqVO.getWarehouseId() : exist.getWarehouseId(), updateReqVO.getWarehouse());
+        updateObj.setProductId(product.getId()); updateObj.setProductName(product.getProductName());
+        updateObj.setWarehouseId(warehouse.getId()); updateObj.setWarehouse(warehouse.getName());
         updateObj.setStatus(null); // 状态只能通过流转接口变更
         // 总金额服务端强算：数量/单价留空取库内原值，且不信前端传入的 totalAmount
         updateObj.setTotalAmount(null);
-        SalesDO current = salesMapper.selectById(updateReqVO.getId());
+        SalesDO current = exist;
         if (current != null) {
             Long qty = updateObj.getQuantity() != null ? updateObj.getQuantity() : current.getQuantity();
             java.math.BigDecimal price = updateObj.getPrice() != null ? updateObj.getPrice() : current.getPrice();
@@ -121,10 +132,12 @@ public class SalesServiceImpl implements SalesService {
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteSales(Long id) {
-        validateSalesExists(id);
+        SalesDO locked = salesMapper.selectForUpdate(id);
+        if (locked == null) throw exception(SALES_NOT_EXISTS);
         // 已完成单据与库存流水绑定，禁止删除
-        if ("2".equals(salesMapper.selectById(id).getStatus())) {
+        if ("2".equals(locked.getStatus())) {
             throw exception(ORDER_COMPLETED_LOCKED);
         }
         salesMapper.deleteById(id);

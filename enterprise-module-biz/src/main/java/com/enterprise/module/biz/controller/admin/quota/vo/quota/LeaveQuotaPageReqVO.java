@@ -18,6 +18,7 @@ import static com.enterprise.framework.common.util.date.DateUtils.FORMAT_YEAR_MO
 public class LeaveQuotaPageReqVO extends PageParam {
 
     @Schema(description = "员工姓名")
+    private Long employeeId;
     private String empName;
     @Schema(description = "假期类型")
     private String leaveType;

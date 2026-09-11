@@ -15,6 +15,11 @@ public class PaymentRespVO {
     @Schema(description = "主键")
     @ExcelProperty("主键")
     private Long id;
+    /** Original receipt/payment reversed by this row. Null for ordinary/return entries. */
+    private Long reversalOfId;
+    /** Return document generating this entry. */
+    private Long sourceReturnId;
+    private String requestId;
 
     @Schema(description = "收付单号")
     @ExcelProperty("收付单号")

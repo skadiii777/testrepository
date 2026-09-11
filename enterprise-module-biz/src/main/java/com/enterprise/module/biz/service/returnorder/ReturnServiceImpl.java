@@ -56,11 +56,12 @@ public class ReturnServiceImpl implements ReturnService {
     @Resource
     private PurchaseMapper purchaseMapper;
     @Resource
-    private com.enterprise.module.biz.dal.mysql.payment.PaymentMapper paymentMapper;
+    private com.enterprise.module.biz.service.payment.PaymentService paymentService;
     @Resource
     private StockService stockService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createReturn(ReturnSaveReqVO createReqVO) {
         // 1.1 校验退货类型并加载原单（必须已完成：库存联动在"完成"流转）
         if (!RETURN_TYPE_SALES.equals(createReqVO.getReturnType())
@@ -69,7 +70,7 @@ public class ReturnServiceImpl implements ReturnService {
         }
         ReturnDO ret = BeanUtils.toBean(createReqVO, ReturnDO.class);
         if (RETURN_TYPE_SALES.equals(createReqVO.getReturnType())) {
-            SalesDO sales = salesMapper.selectById(createReqVO.getOrderId());
+            SalesDO sales = salesMapper.selectForUpdate(createReqVO.getOrderId());
             if (sales == null) {
                 throw exception(RETURN_ORDER_NOT_EXISTS);
             }
@@ -77,12 +78,15 @@ public class ReturnServiceImpl implements ReturnService {
             ret.setOrderCode(sales.getSalesCode());
             ret.setPartyName(sales.getCustomerName());
             ret.setProductName(sales.getProductName());
+            ret.setProductId(sales.getProductId());
+            ret.setWarehouseId(sales.getWarehouseId());
+            ret.setWarehouse(sales.getWarehouse());
             BigDecimal orderPrice = sales.getPrice() != null ? sales.getPrice() : BigDecimal.ZERO;
             ret.setPrice(createReqVO.getPrice() != null ? createReqVO.getPrice() : orderPrice);
             validateQuantity(createReqVO.getReturnType(), createReqVO.getOrderId(), sales.getQuantity(),
                     createReqVO.getQuantity(), null);
         } else {
-            PurchaseDO purchase = purchaseMapper.selectById(createReqVO.getOrderId());
+            PurchaseDO purchase = purchaseMapper.selectForUpdate(createReqVO.getOrderId());
             if (purchase == null) {
                 throw exception(RETURN_ORDER_NOT_EXISTS);
             }
@@ -90,6 +94,9 @@ public class ReturnServiceImpl implements ReturnService {
             ret.setOrderCode(purchase.getPurchaseCode());
             ret.setPartyName(purchase.getSupplierName());
             ret.setProductName(purchase.getProductName());
+            ret.setProductId(purchase.getProductId());
+            ret.setWarehouseId(purchase.getWarehouseId());
+            ret.setWarehouse(purchase.getWarehouse());
             BigDecimal orderPrice = purchase.getPrice() != null ? purchase.getPrice() : BigDecimal.ZERO;
             ret.setPrice(createReqVO.getPrice() != null ? createReqVO.getPrice() : orderPrice);
             validateQuantity(createReqVO.getReturnType(), createReqVO.getOrderId(), purchase.getQuantity(),
@@ -107,8 +114,9 @@ public class ReturnServiceImpl implements ReturnService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateReturn(ReturnSaveReqVO updateReqVO) {
-        ReturnDO exists = validateReturnExists(updateReqVO.getId());
+        ReturnDO exists = lockReturn(updateReqVO.getId());
         if (!RETURN_STATUS_PENDING.equals(exists.getStatus())) {
             throw exception(RETURN_STATUS_INVALID);
         }
@@ -123,6 +131,7 @@ public class ReturnServiceImpl implements ReturnService {
         // 关联单据与类型不可变更；总额按 数量 × 单价 重算
         updateObj.setReturnType(null);
         updateObj.setOrderId(null);
+        updateObj.setProductId(null); updateObj.setWarehouseId(null); updateObj.setWarehouse(null);
         if (updateObj.getPrice() == null) {
             updateObj.setPrice(exists.getPrice());
         }
@@ -135,8 +144,10 @@ public class ReturnServiceImpl implements ReturnService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteReturn(Long id) {
-        validateReturnExists(id);
+        ReturnDO ret = lockReturn(id);
+        if (!RETURN_STATUS_PENDING.equals(ret.getStatus())) throw exception(RETURN_STATUS_INVALID);
         returnMapper.deleteById(id);
     }
 
@@ -153,13 +164,13 @@ public class ReturnServiceImpl implements ReturnService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void executeReturn(Long id) {
-        ReturnDO ret = validateReturnExists(id);
+        ReturnDO ret = lockReturn(id);
         if (!RETURN_STATUS_PENDING.equals(ret.getStatus())) {
             throw exception(RETURN_STATUS_INVALID);
         }
         // 销售退货入库（+），采购退货出库（-）；出库不足时抛异常回滚
         long delta = RETURN_TYPE_SALES.equals(ret.getReturnType()) ? ret.getQuantity() : -ret.getQuantity();
-        boolean ok = stockService.changeStock(ret.getProductName(), ret.getWarehouse(), delta,
+        boolean ok = stockService.changeStock(ret.getProductId(), ret.getWarehouseId(), delta,
                 RETURN_TYPE_SALES.equals(ret.getReturnType()) ? "sales_return" : "purchase_return",
                 ret.getReturnNo());
         if (!ok) {
@@ -176,33 +187,21 @@ public class ReturnServiceImpl implements ReturnService {
     /**
      * 退货红冲：销售退货冲收款、采购退货冲付款；红冲金额 = min(退货货值, 原单累计已收付)
      */
-    private void autoRedFlash(ReturnDO ret) {
-        boolean isSales = RETURN_TYPE_SALES.equals(ret.getReturnType());
-        String bizType = isSales ? "1" : "2";
-        BigDecimal paid = paymentMapper.selectPaidSumByOrder(bizType, ret.getOrderId());
-        if (paid.signum() <= 0 || ret.getTotalAmount() == null
-                || ret.getTotalAmount().signum() <= 0) {
-            return; // 原单没收过款 / 退货无货值，无需红冲
-        }
-        BigDecimal red = ret.getTotalAmount().min(paid);
-        PaymentDO flash = new PaymentDO();
-        flash.setPaymentNo("HK" + java.time.LocalDateTime.now()
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
-        flash.setPaymentType(isSales ? "1" : "2");
-        flash.setBizType(bizType);
-        flash.setOrderId(ret.getOrderId());
-        flash.setOrderCode(ret.getOrderCode());
-        flash.setPartyName(ret.getPartyName());
-        flash.setAmount(red.negate());
-        flash.setPaymentDate(java.time.LocalDate.now().toString());
-        flash.setRemark("退货红冲：" + ret.getReturnNo());
-        paymentMapper.insert(flash);
-        log.info("[autoRedFlash] 退货 {} 生成红字收付款 {} 元（原单 {}）", ret.getReturnNo(), red, ret.getOrderCode());
+    private void autoRedFlash(ReturnDO ret) { paymentService.refundForReturn(ret); }
+
+    private ReturnDO lockReturn(Long id) {
+        ReturnDO before = validateReturnExists(id);
+        if (RETURN_TYPE_SALES.equals(before.getReturnType())) salesMapper.selectForUpdate(before.getOrderId());
+        else purchaseMapper.selectForUpdate(before.getOrderId());
+        ReturnDO locked = returnMapper.selectForUpdate(id);
+        if (locked == null) throw exception(RETURN_NOT_EXISTS);
+        return locked;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void voidReturn(Long id) {
-        ReturnDO ret = validateReturnExists(id);
+        ReturnDO ret = lockReturn(id);
         if (!RETURN_STATUS_PENDING.equals(ret.getStatus())) {
             throw exception(RETURN_STATUS_INVALID);
         }
@@ -265,8 +264,7 @@ public class ReturnServiceImpl implements ReturnService {
      * 生成退货单号：SR/PR + yyyyMMddHHmmss（销售退货=SR，采购退货=PR）
      */
     private String generateReturnNo(String returnType) {
-        return (RETURN_TYPE_SALES.equals(returnType) ? "SR" : "PR")
-                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        return com.enterprise.module.biz.service.support.BizDocumentNo.next(RETURN_TYPE_SALES.equals(returnType) ? "SR" : "PR");
     }
 
 }

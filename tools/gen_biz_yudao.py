@@ -3,16 +3,25 @@
 
 为 14 个业务实体生成：DO / Mapper / VO(3) / Controller / Service
 另生成：ErrorCodeConstants、Dashboard/Approval/Portal 控制器、业务 SQL
-输出根：enterprise-module-biz/src/main/java/com/enterprise/module/biz/
+输出根：generated/<批次>/；模板仅供比对，不覆盖已加固的业务实现。
 """
 import os, io
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-import shutil
-_biz_src = os.path.join(ROOT, 'enterprise-module-biz', 'src', 'main', 'java', 'com', 'enterprise', 'module', 'biz')
-if os.path.exists(_biz_src):
-    shutil.rmtree(_biz_src)
-    print('cleaned biz src')
+# Templates describe the original scaffold. Generate into a new review directory only.
+import argparse
+from pathlib import Path
+from datetime import datetime
+_repo = Path(__file__).resolve().parents[1]
+_parser = argparse.ArgumentParser(description="Generate historical scaffolding for comparison; never overwrite business code")
+_parser.add_argument('--output-name', default=datetime.now().strftime('biz-%Y%m%d-%H%M%S'))
+_args = _parser.parse_args()
+_generated = (_repo / 'generated').resolve()
+_output = (_generated / _args.output_name).resolve()
+if _output.parent != _generated or _output.exists():
+    raise SystemExit('Choose a new directory name directly under generated/')
+_output.mkdir(parents=True)
+ROOT = str(_output)
+print('Review output:', ROOT)
 BIZ = 'enterprise-module-biz/src/main/java/com/enterprise/module/biz'
 PKG = 'com.enterprise.module.biz'
 

@@ -15,7 +15,8 @@ public class StockSaveReqVO {
     private Long id;
 
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message="产品名称不能为空")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
     @Schema(description = "仓库")
     

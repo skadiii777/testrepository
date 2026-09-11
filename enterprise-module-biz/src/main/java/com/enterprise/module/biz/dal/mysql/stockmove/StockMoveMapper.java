@@ -15,6 +15,8 @@ public interface StockMoveMapper extends BaseMapperX<StockMoveDO> {
      */
     default PageResult<StockMoveDO> selectPage(StockMovePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<StockMoveDO>()
+                .eqIfPresent(StockMoveDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(StockMoveDO::getWarehouseId, reqVO.getWarehouseId())
                 .likeIfPresent(StockMoveDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(StockMoveDO::getWarehouse, reqVO.getWarehouse())
                 .eqIfPresent(StockMoveDO::getMoveType, reqVO.getMoveType())

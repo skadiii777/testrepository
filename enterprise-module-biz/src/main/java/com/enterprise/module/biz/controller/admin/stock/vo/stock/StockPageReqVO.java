@@ -18,6 +18,8 @@ import static com.enterprise.framework.common.util.date.DateUtils.FORMAT_YEAR_MO
 public class StockPageReqVO extends PageParam {
 
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
     @Schema(description = "仓库")
     private String warehouse;

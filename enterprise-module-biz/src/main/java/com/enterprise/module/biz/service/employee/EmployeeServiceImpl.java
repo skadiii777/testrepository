@@ -27,9 +27,11 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Resource
     private EmployeeMapper employeeMapper;
+    @Resource private com.enterprise.module.system.api.user.AdminUserApi userApi;
 
     @Override
     public Long createEmployee(EmployeeSaveReqVO createReqVO) {
+        validateUser(createReqVO.getUserId());
         EmployeeDO employee = BeanUtils.toBean(createReqVO, EmployeeDO.class);
         employeeMapper.insert(employee);
         return employee.getId();
@@ -39,6 +41,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public void updateEmployee(EmployeeSaveReqVO updateReqVO) {
         validateEmployeeExists(updateReqVO.getId());
+        validateUser(updateReqVO.getUserId());
         EmployeeDO updateObj = BeanUtils.toBean(updateReqVO, EmployeeDO.class);
         employeeMapper.updateById(updateObj);
     }
@@ -48,6 +51,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     public void deleteEmployee(Long id) {
         validateEmployeeExists(id);
         employeeMapper.deleteById(id);
+    }
+
+    private void validateUser(Long id) {
+        if (id != null && userApi.getUser(id) == null) throw exception(MASTER_REFERENCE_INVALID);
     }
 
     private void validateEmployeeExists(Long id) {

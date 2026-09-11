@@ -23,7 +23,9 @@ public class SalesSaveReqVO {
     
     private String customerName;
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message="产品名称不能为空")
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     @Schema(description = "销售数量", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message="销售数量不能为空")

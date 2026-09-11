@@ -40,12 +40,12 @@ public interface StockService {
     /**
      * 库存变更（delta 正数入库/负数出库），自动落流水；数量不足返回 false
      */
-    boolean changeStock(String productName, String warehouse, Long delta, String sourceType, String sourceCode);
+    boolean changeStock(Long productId, Long warehouseId, Long delta, String sourceType, String sourceCode);
 
     /**
      * 查询库存数量（无记录返回 0）
      */
-    Long findQuantity(String productName, String warehouse);
+    Long findQuantity(Long productId, Long warehouseId);
 
     /**
      * 查询库存低于预警下限的记录

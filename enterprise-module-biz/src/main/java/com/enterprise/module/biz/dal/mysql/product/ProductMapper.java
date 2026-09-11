@@ -9,6 +9,10 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface ProductMapper extends BaseMapperX<ProductDO> {
+    default ProductDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<ProductDO>().eq(ProductDO::getId,id).last("FOR UPDATE"));
+    }
+
 
     /**
      * 分页查询

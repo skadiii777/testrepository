@@ -11,12 +11,19 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface PurchaseMapper extends BaseMapperX<PurchaseDO> {
+    /** Current read; caller must hold a transaction. Tenant and logical-delete filters still apply. */
+    default PurchaseDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<PurchaseDO>().eq(PurchaseDO::getId, id).last("FOR UPDATE"));
+    }
+
 
     /**
      * 分页查询
      */
     default PageResult<PurchaseDO> selectPage(PurchasePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<PurchaseDO>()
+                .eqIfPresent(PurchaseDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(PurchaseDO::getWarehouseId, reqVO.getWarehouseId())
                 .likeIfPresent(PurchaseDO::getPurchaseCode, reqVO.getPurchaseCode())
                 .likeIfPresent(PurchaseDO::getProductName, reqVO.getProductName())
                 .eqIfPresent(PurchaseDO::getPurchaseDate, reqVO.getPurchaseDate())

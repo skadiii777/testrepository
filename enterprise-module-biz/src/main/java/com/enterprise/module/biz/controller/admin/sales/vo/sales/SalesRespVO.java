@@ -18,6 +18,9 @@ public class SalesRespVO {
     @Schema(description = "客户")
     private String customerName;
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     @Schema(description = "销售数量")
     private Long quantity;

@@ -26,6 +26,8 @@ public interface PaymentService {
      * @param id 流水编号
      */
     void deletePayment(Long id);
+    Long reversePayment(Long id, String reason);
+    void refundForReturn(com.enterprise.module.biz.dal.dataobject.returnorder.ReturnDO ret);
 
     /**
      * 获得收付款流水分页

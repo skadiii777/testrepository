@@ -20,6 +20,9 @@ public class PurchasePageReqVO extends PageParam {
     @Schema(description = "采购单号")
     private String purchaseCode;
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     @Schema(description = "采购日期")
     private String purchaseDate;

@@ -14,6 +14,7 @@ public class LeaveRespVO {
     private Long id;
 
     @Schema(description = "员工姓名")
+    private Long employeeId;
     private String empName;
     @Schema(description = "请假类型")
     private String leaveType;

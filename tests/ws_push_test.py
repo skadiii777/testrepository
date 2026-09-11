@@ -4,6 +4,7 @@
 B（testuser02）先建立 WS 长连接；A（admin）经 HTTP 发一条私信；
 测 B 的 WS 连接收到推送帧的延迟；再验证 B 不刷新页面即可拉到该消息。
 """
+import os
 import ipaddress
 import json
 import socket
@@ -32,15 +33,15 @@ def login(username, password):
     url = BASE + "/system/auth/login"
     guard(url)
     r = requests.post(url, json={"username": username, "password": password},
-                      headers={"tenant-id": TENANT})
+                      headers={"tenant-id": TENANT}, timeout=15, allow_redirects=False)
     j = r.json()
     assert j["code"] == 0, j
     return j["data"]
 
 
 def main():
-    a = login("admin", "admin123")
-    b = login("testuser02", "Test123456")
+    a = login(os.environ.get("BIZ_TEST_ADMIN_USER", "admin"), os.environ["BIZ_TEST_ADMIN_PASSWORD"])
+    b = login(os.environ["BIZ_TEST_PEER_USER"], os.environ["BIZ_TEST_PEER_PASSWORD"])
     b_uid = b["userId"]
 
     # 1. B 建立 WS 长连接（与前端同款：refreshToken 鉴权）
@@ -58,7 +59,7 @@ def main():
     guard(send_url)
     r = requests.post(send_url, json=payload,
                       headers={"tenant-id": TENANT,
-                               "Authorization": "Bearer " + a["accessToken"]})
+                               "Authorization": "Bearer " + a["accessToken"]}, timeout=15, allow_redirects=False)
     assert r.json()["code"] == 0, r.text[:200]
     send_done = time.time() - t0
 
@@ -85,7 +86,7 @@ def main():
     guard(pull_url)
     r = requests.get(pull_url, params={"minId": 0, "size": 10},
                      headers={"tenant-id": TENANT,
-                              "Authorization": "Bearer " + b["accessToken"]})
+                              "Authorization": "Bearer " + b["accessToken"]}, timeout=15, allow_redirects=False)
     hit = any("实时推送测速" in str(m.get("content")) for m in r.json().get("data", []))
     print("[4] B 拉取可见该消息: %s" % hit)
 

@@ -28,6 +28,7 @@ public class EmployeeDO extends TenantBaseDO {
     @TableId
     private Long id;
     /**工号*/
+    private Long userId;
     private String empNo;
     /**姓名*/
     private String empName;

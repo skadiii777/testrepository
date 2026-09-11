@@ -17,6 +17,8 @@ public class EmployeeSaveReqVO {
     @Schema(description = "工号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message="工号不能为空")
     private String empNo;
+    @jakarta.validation.constraints.Positive
+    private Long userId;
     @Schema(description = "姓名", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message="姓名不能为空")
     private String empName;

@@ -16,9 +16,16 @@ import java.util.List;
  */
 @Mapper
 public interface ReturnMapper extends BaseMapperX<ReturnDO> {
+    /** Current read; caller must hold a transaction. Tenant and logical-delete filters still apply. */
+    default ReturnDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<ReturnDO>().eq(ReturnDO::getId, id).last("FOR UPDATE"));
+    }
+
 
     default PageResult<ReturnDO> selectPage(ReturnPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ReturnDO>()
+                .eqIfPresent(ReturnDO::getProductId, reqVO.getProductId())
+                .eqIfPresent(ReturnDO::getWarehouseId, reqVO.getWarehouseId())
                 .eqIfPresent(ReturnDO::getReturnType, reqVO.getReturnType())
                 .eqIfPresent(ReturnDO::getStatus, reqVO.getStatus())
                 .likeIfPresent(ReturnDO::getOrderCode, reqVO.getOrderCode())
@@ -35,7 +42,7 @@ public interface ReturnMapper extends BaseMapperX<ReturnDO> {
         return selectList(new LambdaQueryWrapperX<ReturnDO>()
                 .eq(ReturnDO::getReturnType, returnType)
                 .eq(ReturnDO::getOrderId, orderId)
-                .ne(ReturnDO::getStatus, "3"));
+                .ne(ReturnDO::getStatus, "3").last("FOR UPDATE"));
     }
 
     /**

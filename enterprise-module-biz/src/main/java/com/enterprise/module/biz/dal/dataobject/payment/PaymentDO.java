@@ -26,6 +26,11 @@ public class PaymentDO extends TenantBaseDO {
      * 主键
      */
     private Long id;
+    /** Original receipt/payment reversed by this row. Null for ordinary/return entries. */
+    private Long reversalOfId;
+    /** Return document generating this entry. */
+    private Long sourceReturnId;
+    private String requestId;
     /**
      * 收付单号（SK/FK+时间戳）
      */

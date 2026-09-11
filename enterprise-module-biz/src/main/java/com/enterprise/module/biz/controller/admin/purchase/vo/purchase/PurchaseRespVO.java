@@ -18,6 +18,9 @@ public class PurchaseRespVO {
     @Schema(description = "供应商")
     private String supplierName;
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
+    private String warehouse;
     private String productName;
     @Schema(description = "采购数量")
     private Long quantity;

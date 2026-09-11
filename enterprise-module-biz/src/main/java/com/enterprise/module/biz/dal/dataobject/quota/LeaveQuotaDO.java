@@ -28,6 +28,7 @@ public class LeaveQuotaDO extends TenantBaseDO {
     @TableId
     private Long id;
     /**员工姓名*/
+    private Long employeeId;
     private String empName;
     /**假期类型*/
     private String leaveType;

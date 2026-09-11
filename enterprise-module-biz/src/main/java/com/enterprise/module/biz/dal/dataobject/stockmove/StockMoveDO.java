@@ -28,6 +28,8 @@ public class StockMoveDO extends TenantBaseDO {
     @TableId
     private Long id;
     /**产品名称*/
+    private Long productId;
+    private Long warehouseId;
     private String productName;
     /**仓库*/
     private String warehouse;

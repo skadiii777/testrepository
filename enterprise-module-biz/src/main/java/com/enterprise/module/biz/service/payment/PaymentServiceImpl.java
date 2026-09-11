@@ -2,165 +2,175 @@ package com.enterprise.module.biz.service.payment;
 
 import com.enterprise.framework.common.pojo.PageResult;
 import com.enterprise.framework.common.util.object.BeanUtils;
-import com.enterprise.module.biz.controller.admin.payment.vo.payment.PaymentPageReqVO;
-import com.enterprise.module.biz.controller.admin.payment.vo.payment.PaymentSaveReqVO;
+import com.enterprise.module.biz.controller.admin.payment.vo.payment.*;
 import com.enterprise.module.biz.dal.dataobject.payment.PaymentDO;
-import com.enterprise.module.biz.dal.dataobject.purchase.PurchaseDO;
-import com.enterprise.module.biz.dal.dataobject.sales.SalesDO;
+import com.enterprise.module.biz.dal.dataobject.returnorder.ReturnDO;
 import com.enterprise.module.biz.dal.mysql.payment.PaymentMapper;
-import com.enterprise.module.biz.dal.mysql.purchase.PurchaseMapper;
 import com.enterprise.module.biz.dal.mysql.sales.SalesMapper;
-import lombok.extern.slf4j.Slf4j;
+import com.enterprise.module.biz.dal.mysql.purchase.PurchaseMapper;
+import com.enterprise.module.biz.dal.mysql.contract.ContractMapper;
+import com.enterprise.module.biz.service.support.BizDocumentNo;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
+import java.time.LocalDate;
+import java.util.*;
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
 
-/**
- * 收付款流水 Service 实现类
- *
- * @author 企业管理平台
- */
-@Slf4j
 @Service
 @Validated
 public class PaymentServiceImpl implements PaymentService {
+    @Resource private PaymentMapper paymentMapper;
+    @Resource private SalesMapper salesMapper;
+    @Resource private PurchaseMapper purchaseMapper;
+    @Resource private ContractMapper contractMapper;
 
-    /** 单据状态：已完成 */
-    private static final String ORDER_STATUS_COMPLETED = "2";
-    /** 单据类型：1=销售单 2=采购单 */
-    private static final String BIZ_TYPE_SALES = "1";
-    private static final String BIZ_TYPE_PURCHASE = "2";
-
-    @Resource
-    private PaymentMapper paymentMapper;
-    @Resource
-    private SalesMapper salesMapper;
-    @Resource
-    private PurchaseMapper purchaseMapper;
-    @Resource
-    private com.enterprise.module.biz.dal.mysql.contract.ContractMapper contractMapper;
+    /** All money changes lock the same order (or standalone contract) before reading any ledger totals. */
+    private PaymentDO lockTarget(String type, Long orderId, Long contractId) {
+        if (!Set.of("1", "2").contains(type)) throw exception(PAYMENT_BIZ_TYPE_INVALID);
+        PaymentDO target = new PaymentDO();
+        target.setBizType(type);
+        target.setOrderId(orderId);
+        target.setContractId(contractId);
+        if (orderId != null) {
+            if ("1".equals(type)) {
+                var order = salesMapper.selectForUpdate(orderId);
+                if (order == null) throw exception(PAYMENT_ORDER_NOT_EXISTS);
+                if (!"2".equals(order.getStatus())) throw exception(PAYMENT_ORDER_NOT_COMPLETED);
+                target.setAmount(order.getTotalAmount());
+                target.setOrderCode(order.getSalesCode());
+                target.setPartyName(order.getCustomerName());
+            } else {
+                var order = purchaseMapper.selectForUpdate(orderId);
+                if (order == null) throw exception(PAYMENT_ORDER_NOT_EXISTS);
+                if (!"2".equals(order.getStatus())) throw exception(PAYMENT_ORDER_NOT_COMPLETED);
+                target.setAmount(order.getTotalAmount());
+                target.setOrderCode(order.getPurchaseCode());
+                target.setPartyName(order.getSupplierName());
+            }
+        }
+        if (contractId != null) {
+            var contract = contractMapper.selectForUpdate(contractId);
+            if (contract == null) throw exception(PAYMENT_CONTRACT_NOT_EXISTS);
+            if (orderId == null) {
+                target.setOrderCode(contract.getContractCode());
+                target.setPartyName(contract.getCustomerName());
+            }
+        }
+        if (orderId == null && contractId == null) throw exception(PAYMENT_TARGET_REQUIRED);
+        return target;
+    }
 
     @Override
-    public Long createPayment(PaymentSaveReqVO createReqVO) {
-        // 1.1 校验收付类型与单据类型匹配：收款对应销售单，付款对应采购单
-        String bizType = createReqVO.getBizType();
-        if (!BIZ_TYPE_SALES.equals(bizType) && !BIZ_TYPE_PURCHASE.equals(bizType)) {
-            throw exception(PAYMENT_BIZ_TYPE_INVALID);
-        }
-        boolean isReceipt = BIZ_TYPE_SALES.equals(createReqVO.getPaymentType());
-        if (isReceipt != BIZ_TYPE_SALES.equals(bizType)) {
-            throw exception(PAYMENT_TYPE_BIZ_MISMATCH);
-        }
-        // 1.2 关联目标二选一：挂单据（原强校验链）或挂合同（纯合同回款，如收定金）
-        BigDecimal totalAmount;
-        String orderCode;
-        String partyName;
-        if (createReqVO.getOrderId() != null) {
-            if (BIZ_TYPE_SALES.equals(bizType)) {
-                SalesDO sales = salesMapper.selectById(createReqVO.getOrderId());
-                if (sales == null) {
-                    throw exception(PAYMENT_ORDER_NOT_EXISTS);
-                }
-                validateOrderCompleted(sales.getStatus());
-                totalAmount = resolveTotalAmount(sales.getQuantity(), sales.getPrice(), sales.getTotalAmount());
-                orderCode = sales.getSalesCode();
-                partyName = sales.getCustomerName();
-            } else {
-                PurchaseDO purchase = purchaseMapper.selectById(createReqVO.getOrderId());
-                if (purchase == null) {
-                    throw exception(PAYMENT_ORDER_NOT_EXISTS);
-                }
-                validateOrderCompleted(purchase.getStatus());
-                totalAmount = resolveTotalAmount(purchase.getQuantity(), purchase.getPrice(), purchase.getTotalAmount());
-                orderCode = purchase.getPurchaseCode();
-                partyName = purchase.getSupplierName();
-            }
-            // 1.3 校验累计收付金额不超过单据总额（纯合同回款无单据总额约束）
-            BigDecimal paidSum = paymentMapper.selectPaidSumByOrder(bizType, createReqVO.getOrderId());
-            if (paidSum.add(createReqVO.getAmount()).compareTo(totalAmount) > 0) {
-                throw exception(PAYMENT_AMOUNT_EXCEED,
-                        paidSum.stripTrailingZeros().toPlainString(),
-                        totalAmount.stripTrailingZeros().toPlainString());
-            }
-        } else if (createReqVO.getContractId() != null) {
-            orderCode = null;
-            partyName = null;
-        } else {
-            throw exception(PAYMENT_TARGET_REQUIRED);
-        }
-        // 1.4 挂合同时校验合同存在；纯合同回款时对方名称取合同客户
-        if (createReqVO.getContractId() != null) {
-            com.enterprise.module.biz.dal.dataobject.contract.ContractDO contract =
-                    contractMapper.selectById(createReqVO.getContractId());
-            if (contract == null) {
-                throw exception(PAYMENT_CONTRACT_NOT_EXISTS);
-            }
-            if (partyName == null) {
-                partyName = contract.getCustomerName();
-                orderCode = contract.getContractCode();
+    @Transactional(rollbackFor = Exception.class)
+    public Long createPayment(PaymentSaveReqVO req) {
+        if (!Objects.equals(req.getPaymentType(), req.getBizType())) throw exception(PAYMENT_TYPE_BIZ_MISMATCH);
+        if (req.getOrderId() == null && !"1".equals(req.getPaymentType())) throw exception(PAYMENT_TARGET_REQUIRED);
+        PaymentDO target = lockTarget(req.getBizType(), req.getOrderId(), req.getContractId());
+        if (req.getAmount() == null || req.getAmount().signum() <= 0) throw exception(PAYMENT_AMOUNT_INVALID);
+        if (req.getRequestId() != null) {
+            PaymentDO prior = paymentMapper.selectByRequestId(req.getRequestId());
+            if (prior != null) {
+                if (!Objects.equals(prior.getOrderId(), req.getOrderId())
+                        || !Objects.equals(prior.getContractId(), req.getContractId())
+                        || !Objects.equals(prior.getBizType(), req.getBizType())
+                        || prior.getAmount().compareTo(req.getAmount()) != 0
+                        || !Objects.equals(prior.getPaymentDate(), req.getPaymentDate())
+                        || !Objects.equals(prior.getPaymentMethod(), req.getPaymentMethod())
+                        || !Objects.equals(prior.getRemark(), req.getRemark())) throw exception(PAYMENT_REQUEST_CONFLICT);
+                return prior.getId();
             }
         }
-
-        // 2. 插入流水（只增不删改）
-        PaymentDO payment = BeanUtils.toBean(createReqVO, PaymentDO.class);
-        payment.setOrderCode(orderCode);
-        payment.setPartyName(partyName);
-        payment.setPaymentNo(generatePaymentNo(createReqVO.getPaymentType()));
+        if (req.getOrderId() != null) {
+            BigDecimal paid = sum(paymentMapper.selectCurrentByOrder(req.getBizType(), req.getOrderId()));
+            if (target.getAmount() == null || paid.add(req.getAmount()).compareTo(target.getAmount()) > 0)
+                throw exception(PAYMENT_AMOUNT_EXCEED, paid, target.getAmount());
+        }
+        PaymentDO payment = BeanUtils.toBean(req, PaymentDO.class);
+        payment.setOrderCode(target.getOrderCode());
+        payment.setPartyName(target.getPartyName());
+        payment.setPaymentNo(BizDocumentNo.next("1".equals(req.getPaymentType()) ? "SK" : "FK"));
         paymentMapper.insert(payment);
         return payment.getId();
     }
 
-    @Override
-    public void deletePayment(Long id) {
-        validatePaymentExists(id);
-        paymentMapper.deleteById(id);
-    }
+    /** Keep the old endpoint explicit: silently deleting or implicitly reversing without a reason is forbidden. */
+    @Override public void deletePayment(Long id) { throw exception(PAYMENT_DELETE_FORBIDDEN); }
 
     @Override
-    public PageResult<PaymentDO> getPaymentPage(PaymentPageReqVO pageReqVO) {
-        return paymentMapper.selectPage(pageReqVO);
+    @Transactional(rollbackFor = Exception.class)
+    public Long reversePayment(Long id, String reason) {
+        if (reason == null || reason.isBlank() || reason.length() > 200) throw exception(PAYMENT_REASON_REQUIRED);
+        PaymentDO before = paymentMapper.selectById(id);
+        if (before == null) throw exception(PAYMENT_NOT_EXISTS);
+        lockTarget(before.getBizType(), before.getOrderId(), before.getContractId());
+        PaymentDO original = paymentMapper.selectForUpdate(id);
+        if (original == null) throw exception(PAYMENT_NOT_EXISTS);
+        var existing = paymentMapper.selectByRequestId("reverse:" + id);
+        if (existing != null) return existing.getId();
+        if (original.getAmount().signum() <= 0 || original.getReversalOfId() != null
+                || original.getSourceReturnId() != null) throw exception(PAYMENT_REVERSAL_INVALID);
+        var ledger = original.getOrderId() != null
+                ? paymentMapper.selectCurrentByOrder(original.getBizType(), original.getOrderId())
+                : paymentMapper.selectCurrentByContract(original.getContractId());
+        BigDecimal available = ledger.stream().filter(p -> Objects.equals(p.getContractId(), original.getContractId()))
+                .map(PaymentDO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (available.compareTo(original.getAmount()) < 0) throw exception(PAYMENT_REVERSAL_INVALID);
+        PaymentDO reversal = new PaymentDO();
+        reversal.setPaymentNo(BizDocumentNo.next("CX"));
+        reversal.setPaymentType(original.getPaymentType());
+        reversal.setBizType(original.getBizType());
+        reversal.setOrderId(original.getOrderId());
+        reversal.setOrderCode(original.getOrderCode());
+        reversal.setPartyName(original.getPartyName());
+        reversal.setContractId(original.getContractId());
+        reversal.setAmount(original.getAmount().negate());
+        reversal.setPaymentDate(LocalDate.now().toString());
+        reversal.setPaymentMethod(original.getPaymentMethod());
+        reversal.setReversalOfId(id);
+        reversal.setRequestId("reverse:" + id);
+        reversal.setRemark(reason.trim());
+        paymentMapper.insert(reversal);
+        return reversal.getId();
     }
 
     @Override
-    public BigDecimal getPaidSumByOrder(String bizType, Long orderId) {
-        return paymentMapper.selectPaidSumByOrder(bizType, orderId);
-    }
-
-    private void validateOrderCompleted(String status) {
-        if (!ORDER_STATUS_COMPLETED.equals(status)) {
-            throw exception(PAYMENT_ORDER_NOT_COMPLETED);
+    @Transactional(rollbackFor = Exception.class)
+    public void refundForReturn(ReturnDO ret) {
+        String type = ret.getReturnType();
+        lockTarget(type, ret.getOrderId(), null);
+        var ledger = paymentMapper.selectCurrentByOrder(type, ret.getOrderId());
+        if (ledger.stream().anyMatch(p -> Objects.equals(p.getSourceReturnId(), ret.getId()))) return;
+        BigDecimal remaining = ret.getTotalAmount();
+        if (remaining == null || remaining.signum() <= 0) return;
+        Map<Long, BigDecimal> balances = new LinkedHashMap<>();
+        for (PaymentDO p : ledger) balances.merge(p.getContractId(), p.getAmount(), BigDecimal::add);
+        for (var entry : balances.entrySet()) {
+            BigDecimal refund = remaining.min(entry.getValue());
+            if (refund.signum() <= 0) continue;
+            PaymentDO flash = new PaymentDO();
+            flash.setPaymentNo(BizDocumentNo.next("HK"));
+            flash.setPaymentType(type);
+            flash.setBizType(type);
+            flash.setOrderId(ret.getOrderId());
+            flash.setOrderCode(ret.getOrderCode());
+            flash.setPartyName(ret.getPartyName());
+            flash.setContractId(entry.getKey());
+            flash.setAmount(refund.negate());
+            flash.setPaymentDate(LocalDate.now().toString());
+            flash.setSourceReturnId(ret.getId());
+            flash.setRequestId("return:" + ret.getId() + ":" + entry.getKey());
+            flash.setRemark("退货红冲：" + ret.getReturnNo());
+            paymentMapper.insert(flash);
+            remaining = remaining.subtract(refund);
         }
     }
-
-    /**
-     * 单据总额：优先取 total_amount 列；历史单据该列可能为空，退回 数量 × 单价
-     */
-    private BigDecimal resolveTotalAmount(Long quantity, BigDecimal price, BigDecimal totalAmount) {
-        if (totalAmount != null) {
-            return totalAmount;
-        }
-        return BigDecimal.valueOf(quantity).multiply(price);
+    private BigDecimal sum(List<PaymentDO> rows) {
+        return rows.stream().map(PaymentDO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
-
-    private void validatePaymentExists(Long id) {
-        if (paymentMapper.selectById(id) == null) {
-            throw exception(PAYMENT_NOT_EXISTS);
-        }
-    }
-
-    /**
-     * 生成收付单号：SK/FK + yyyyMMddHHmmss（收款=SK，付款=FK）
-     */
-    private String generatePaymentNo(String paymentType) {
-        return ("1".equals(paymentType) ? "SK" : "FK")
-                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-    }
-
+    @Override public PageResult<PaymentDO> getPaymentPage(PaymentPageReqVO req) { return paymentMapper.selectPage(req); }
+    @Override public BigDecimal getPaidSumByOrder(String type, Long id) { return paymentMapper.selectPaidSumByOrder(type, id); }
 }

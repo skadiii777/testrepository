@@ -9,6 +9,11 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface ContractMapper extends BaseMapperX<ContractDO> {
+    /** Current read; caller must hold a transaction. Tenant and logical-delete filters still apply. */
+    default ContractDO selectForUpdate(Long id) {
+        return selectOne(new LambdaQueryWrapperX<ContractDO>().eq(ContractDO::getId, id).last("FOR UPDATE"));
+    }
+
 
     /**
      * 分页查询

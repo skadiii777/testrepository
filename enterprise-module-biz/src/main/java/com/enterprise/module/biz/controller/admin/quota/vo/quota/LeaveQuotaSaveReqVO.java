@@ -15,7 +15,7 @@ public class LeaveQuotaSaveReqVO {
     private Long id;
 
     @Schema(description = "员工姓名", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message="员工姓名不能为空")
+    private Long employeeId;
     private String empName;
     @Schema(description = "假期类型", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message="假期类型不能为空")

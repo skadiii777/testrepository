@@ -9,6 +9,7 @@
 
 运行前提：enterprise-server 已启动(48080)，Redis 已启动，enterprise-biz.sql 已导入
 """
+import os
 import json
 import socket
 import ipaddress
@@ -75,13 +76,13 @@ def login(username, password):
 def test_auth():
     r = login("admin", "wrongpass")
     check("登录-错误密码被拒绝", r.json().get("code") != 0, r.text[:100])
-    r = login("admin", "admin123")
+    r = login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     check("登录-正确凭证通过", r.json().get("code") == 0, r.text[:100])
     TOKEN["value"] = None
     r = jget("/biz/customer/page")
     body = r.json()
     check("鉴权-无token访问被拦截", body.get("code") == 401, "HTTP %s body=%s" % (r.status_code, r.text[:80]))
-    login("admin", "admin123")
+    login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
 
 
 # ---------------- 2. 业务模块 CRUD ----------------
@@ -1235,14 +1236,14 @@ def test_register_flow():
     post_id = (opts.get("posts") or [{}])[0].get("id")
 
     # 1) 注册（提交申请）
-    body = dict(username=uname, nickname="流程注册测试", password="Test123456", deptId=dept_id)
+    body = dict(username=uname, nickname="流程注册测试", password=os.environ["BIZ_TEST_PEER_PASSWORD"], deptId=dept_id)
     if post_id:
         body["postId"] = post_id
     r = jpost("/system/auth/register", body)
     check("注册-提交申请", r.json().get("code") == 0 and r.json().get("data") is True, r.text[:150])
 
     # 2) 待审批：登录被明确提示
-    r = jpost("/system/auth/login", dict(username=uname, password="Test123456"))
+    r = jpost("/system/auth/login", dict(username=uname, password=os.environ["BIZ_TEST_PEER_PASSWORD"]))
     check("注册-待审批登录被拒且提示明确", r.json().get("code") != 0
           and "等待管理员审批" in r.json().get("msg", ""), r.text[:150])
 
@@ -1266,7 +1267,7 @@ def test_register_flow():
     check("注册-已分配普通角色", r.json().get("code") == 0 and len(roles) >= 1, r.text[:120])
 
     # 5) 审批后可登录
-    r = jpost("/system/auth/login", dict(username=uname, password="Test123456"))
+    r = jpost("/system/auth/login", dict(username=uname, password=os.environ["BIZ_TEST_PEER_PASSWORD"]))
     check("注册-审批后可登录", r.json().get("code") == 0, r.text[:120])
 
     # 6) 重复注册同名被拒
@@ -1275,7 +1276,7 @@ def test_register_flow():
 
     # 7) 驳回分支：注册第二个用户并驳回
     uname2 = "regrej" + stamp[-4:]
-    body2 = dict(username=uname2, nickname="驳回测试", password="Test123456", deptId=dept_id)
+    body2 = dict(username=uname2, nickname="驳回测试", password=os.environ["BIZ_TEST_PEER_PASSWORD"], deptId=dept_id)
     r = jpost("/system/auth/register", body2)
     check("注册-第二笔提交", r.json().get("code") == 0, r.text[:120])
     r = jget("/system/register-apply/page", params={"username": uname2, "status": "0", "pageNo": 1, "pageSize": 5})
@@ -1283,7 +1284,7 @@ def test_register_flow():
     aid2 = rows2[0]["id"] if rows2 else None
     r = jpost("/system/register-apply/reject", params={"id": aid2, "reason": "信息不符"})
     check("注册-驳回成功", r.json().get("code") == 0, r.text[:120])
-    r = jpost("/system/auth/login", dict(username=uname2, password="Test123456"))
+    r = jpost("/system/auth/login", dict(username=uname2, password=os.environ["BIZ_TEST_PEER_PASSWORD"]))
     check("注册-驳回后登录被拒", r.json().get("code") != 0, r.text[:120])
 
     # 8) 预留接口：部门默认角色映射
@@ -1533,10 +1534,10 @@ def test_announcement_expiry():
 # ---------------- 20. 登录安全：单账号互踢 + 在线用户 ----------------
 def test_online_security():
     # 1) admin 连续登录两次，旧会话应被踢
-    r = login("admin", "admin123")
+    r = login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     check("登录安全-第一次登录", r.json().get("code") == 0, r.text[:120])
     old_token = TOKEN["value"]
-    r = login("admin", "admin123")
+    r = login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     check("登录安全-第二次登录", r.json().get("code") == 0, r.text[:120])
     new_token = TOKEN["value"]
     r = req("get", "/system/auth/get-permission-info",
@@ -1588,11 +1589,11 @@ def test_im():
               deptId=103, mobile="137%08d" % (int(_t.time()) % 100000000)))
     check("IM-临时用户创建", r.json().get("code") == 0, r.text[:150])
     b_uid = r.json().get("data")
-    r = login("admin", "admin123")  # login 响应自带 userId，避免跨租户同名 admin 取错行
+    r = login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])  # login 响应自带 userId，避免跨租户同名 admin 取错行
     a_uid = r.json()["data"]["userId"]
 
     # 好友申请 → 同意
-    login("admin", "admin123")
+    login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     r = jpost("/im/friend-request/apply", dict(toUserId=b_uid, applyContent="加个好友"))
     check("IM-好友申请", r.json().get("code") == 0, r.text[:150])
     req_id = r.json().get("data")
@@ -1601,7 +1602,7 @@ def test_im():
     check("IM-好友同意", r.json().get("code") == 0, r.text[:150])
 
     # A 发私信 → B 拉取收到 → B 已读 → A 见回执
-    login("admin", "admin123")
+    login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     r = jpost("/im/message/private/send", dict(clientMessageId="smoke-%d" % int(_t.time() * 1000),
               receiverId=b_uid, type=101, content=json.dumps({"content": "你好，IM 冒烟测试"})))
     check("IM-发私信", r.json().get("code") == 0, r.text[:150])
@@ -1612,7 +1613,7 @@ def test_im():
     check("IM-B拉取收到私信", any(m.get("id") == msg_id for m in msgs), "msgs=%d" % len(msgs))
     r = jput("/im/message/private/read", params={"receiverId": a_uid, "messageId": msg_id})
     check("IM-B已读上报", r.json().get("code") == 0, r.text[:120])
-    login("admin", "admin123")
+    login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     r = jget("/im/message/private/max-read-message-id", params={"peerId": b_uid})
     check("IM-已读回执", r.json().get("code") == 0 and int(r.json().get("data", 0)) >= msg_id,
           r.text[:120])
@@ -1637,7 +1638,7 @@ def test_im():
     check("IM-B拉取群消息", any("群聊冒烟" in x for x in texts), str(texts[:2]))
 
     # 清理：删临时用户（群与消息保留作演示数据）
-    login("admin", "admin123")
+    login("admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     jdelete("/system/user/delete", params={"id": b_uid})
     check("IM-清理完成", True, "")
 

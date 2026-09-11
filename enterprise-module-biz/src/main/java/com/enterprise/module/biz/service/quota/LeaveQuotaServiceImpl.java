@@ -27,16 +27,20 @@ public class LeaveQuotaServiceImpl implements LeaveQuotaService {
 
     @Resource
     private LeaveQuotaMapper quotaMapper;
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
 
 
     @Override
     public Long createLeaveQuota(LeaveQuotaSaveReqVO createReqVO) {
-        // 唯一键防重：员工+类型+年份
-        if (quotaMapper.selectUnique(createReqVO.getEmpName(), createReqVO.getLeaveType(), createReqVO.getYear()) != null) {
+        var employee = references.employee(createReqVO.getEmployeeId(),createReqVO.getEmpName());
+        createReqVO.setEmployeeId(employee.getId()); createReqVO.setEmpName(employee.getEmpName());
+        // 唯一键防重：员工ID+类型+年份
+        if (quotaMapper.selectUnique(createReqVO.getEmployeeId(), createReqVO.getLeaveType(), createReqVO.getYear()) != null) {
             throw exception(QUOTA_DUPLICATE);
         }
         LeaveQuotaDO quota = BeanUtils.toBean(createReqVO, LeaveQuotaDO.class);
+        if (quota.getQuotaDays() == null || quota.getQuotaDays().signum() < 0 || quota.getUsedDays() != null && quota.getUsedDays().signum() < 0) throw exception(QUOTA_USED_OVER);
         if (quota.getUsedDays() == null) {
             quota.setUsedDays(java.math.BigDecimal.ZERO);
         }
@@ -48,30 +52,37 @@ public class LeaveQuotaServiceImpl implements LeaveQuotaService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updateLeaveQuota(LeaveQuotaSaveReqVO updateReqVO) {
         validateLeaveQuotaExists(updateReqVO.getId());
-        LeaveQuotaDO exist = quotaMapper.selectUnique(updateReqVO.getEmpName(), updateReqVO.getLeaveType(), updateReqVO.getYear());
+        var old = quotaMapper.selectForUpdate(updateReqVO.getId());
+        var employee = references.employee(updateReqVO.getEmployeeId() != null ? updateReqVO.getEmployeeId() : old.getEmployeeId(),updateReqVO.getEmpName());
+        if (!employee.getId().equals(old.getEmployeeId())
+                || !java.util.Objects.equals(updateReqVO.getLeaveType(),old.getLeaveType())
+                || !java.util.Objects.equals(updateReqVO.getYear(),old.getYear())) throw exception(MASTER_REFERENCE_INVALID);
+        updateReqVO.setEmployeeId(employee.getId()); updateReqVO.setEmpName(employee.getEmpName());
+        LeaveQuotaDO exist = quotaMapper.selectUnique(updateReqVO.getEmployeeId(), updateReqVO.getLeaveType(), updateReqVO.getYear());
         if (exist != null && !exist.getId().equals(updateReqVO.getId())) {
             throw exception(QUOTA_DUPLICATE);
         }
+        if (updateReqVO.getUsedDays() != null && updateReqVO.getUsedDays().compareTo(old.getUsedDays()) != 0) throw exception(QUOTA_USED_OVER);
+        if (updateReqVO.getQuotaDays() != null && updateReqVO.getQuotaDays().compareTo(old.getUsedDays()) < 0) throw exception(QUOTA_USED_OVER);
         LeaveQuotaDO updateObj = BeanUtils.toBean(updateReqVO, LeaveQuotaDO.class);
-        if (updateObj.getUsedDays() != null && updateObj.getQuotaDays() != null
-                && updateObj.getUsedDays().compareTo(updateObj.getQuotaDays()) > 0) {
-            throw exception(QUOTA_USED_OVER);
-        }
+        updateObj.setUsedDays(null);
         quotaMapper.updateById(updateObj);
     }
 
     @Override
-    public java.math.BigDecimal findRemainDays(String empName, String leaveType, String year) {
-        LeaveQuotaDO quota = quotaMapper.selectUnique(empName, leaveType, year);
+    public java.math.BigDecimal findRemainDays(Long employeeId, String leaveType, String year) {
+        LeaveQuotaDO quota = quotaMapper.selectUnique(employeeId, leaveType, year);
         // 无配额记录 = 该类型未配置限额
         return quota == null ? new java.math.BigDecimal("99999") : quota.getRemainDays();
     }
 
     @Override
-    public void deductUsedDays(String empName, String leaveType, String year, java.math.BigDecimal days) {
-        LeaveQuotaDO quota = quotaMapper.selectUnique(empName, leaveType, year);
+    public void deductUsedDays(Long employeeId, String leaveType, String year, java.math.BigDecimal days) {
+        if (days == null || days.signum() <= 0) throw exception(LEAVE_DAYS_INVALID);
+        LeaveQuotaDO quota = quotaMapper.selectUnique(employeeId, leaveType, year);
         if (quota == null) {
             return; // 未配置配额的类型不限额
         }
@@ -87,17 +98,21 @@ public class LeaveQuotaServiceImpl implements LeaveQuotaService {
     }
 
     @Override
-    public void refundUsedDays(String empName, String leaveType, String year, java.math.BigDecimal days) {
-        LeaveQuotaDO quota = quotaMapper.selectUnique(empName, leaveType, year);
+    public void refundUsedDays(Long employeeId, String leaveType, String year, java.math.BigDecimal days) {
+        if (days == null || days.signum() <= 0) throw exception(LEAVE_DAYS_INVALID);
+        LeaveQuotaDO quota = quotaMapper.selectUnique(employeeId, leaveType, year);
         if (quota != null) {
-            quotaMapper.adjustUsedDays(quota.getId(), days.negate(), null);
+            if (quotaMapper.adjustUsedDays(quota.getId(), days.negate(), null) == 0) throw exception(LEAVE_QUOTA_NOT_ENOUGH);
         }
     }
 
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void deleteLeaveQuota(Long id) {
-        validateLeaveQuotaExists(id);
+        var quota = quotaMapper.selectForUpdate(id);
+        if (quota == null) throw exception(LEAVEQUOTA_NOT_EXISTS);
+        if (quota.getUsedDays().signum() != 0) throw exception(QUOTA_USED_OVER);
         quotaMapper.deleteById(id);
     }
 

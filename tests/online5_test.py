@@ -49,7 +49,7 @@ def main():
     admin = requests.Session()
 
     # 0. 管理员登录
-    j = login(admin, "admin", "admin123")
+    j = login(admin, "admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     check("准备-admin登录", j.get("code") == 0 and j.get("data"), str(j)[:150])
     admin_token = j["data"]["accessToken"]
 
@@ -87,7 +87,7 @@ def main():
           and bool(admin_online.get("createTime")), str(admin_online))
 
     # 3. admin 在别处重复登录 → 旧会话被踢，在线仍为 5
-    j = login(requests.Session(), "admin", "admin123")
+    j = login(requests.Session(), "admin", os.environ["BIZ_TEST_ADMIN_PASSWORD"])
     check("互踢-admin二次登录", j.get("code") == 0, str(j)[:150])
     r = req(requests, "get", "/system/auth/get-permission-info",
             headers=auth_headers(sessions["admin"]))

@@ -38,16 +38,20 @@ public class StockCheckServiceImpl implements StockCheckService {
     private StockCheckMapper stockCheckMapper;
     @Resource
     private StockService stockService;
+    @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
+    @Resource private com.enterprise.module.biz.dal.mysql.product.ProductMapper productMapper;
 
     @Override
     public Long createStockCheck(StockCheckCreateReqVO createReqVO) {
         StockCheckDO check = BeanUtils.toBean(createReqVO, StockCheckDO.class);
+        var product = references.product(check.getProductId(),check.getProductName());
+        var warehouse = references.warehouse(check.getWarehouseId(),check.getWarehouse());
+        check.setProductId(product.getId()); check.setProductName(product.getProductName());
+        check.setWarehouseId(warehouse.getId()); check.setWarehouse(warehouse.getName());
         check.setCheckNo(generateCheckNo());
         check.setStatus(STATUS_PENDING);
-        check.setWarehouse(createReqVO.getWarehouse() == null || createReqVO.getWarehouse().isEmpty()
-                ? "默认仓库" : createReqVO.getWarehouse());
         // 快照创建时的账面数量（仅作参考，确认时以当下库存为准）
-        check.setBookQuantity(stockService.findQuantity(check.getProductName(), check.getWarehouse()));
+        check.setBookQuantity(stockService.findQuantity(check.getProductId(), check.getWarehouseId()));
         stockCheckMapper.insert(check);
         return check.getId();
     }
@@ -55,15 +59,17 @@ public class StockCheckServiceImpl implements StockCheckService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void confirmStockCheck(Long id) {
-        StockCheckDO check = validateStockCheckExists(id);
+        StockCheckDO check = stockCheckMapper.selectForUpdate(id);
+        if (check == null) throw exception(STOCKCHECK_NOT_EXISTS);
         if (!STATUS_PENDING.equals(check.getStatus())) {
             throw exception(STOCKCHECK_ALREADY_CONFIRMED);
         }
+        productMapper.selectForUpdate(check.getProductId());
         // 确认时重新读取当下库存作为账面（创建后库存可能已变动）
-        Long bookQuantity = stockService.findQuantity(check.getProductName(), check.getWarehouse());
+        Long bookQuantity = stockService.findQuantity(check.getProductId(), check.getWarehouseId());
         Long diff = check.getActualQuantity() - bookQuantity;
         if (diff != 0) {
-            boolean ok = stockService.changeStock(check.getProductName(), check.getWarehouse(),
+            boolean ok = stockService.changeStock(check.getProductId(), check.getWarehouseId(),
                     diff, "stockcheck", check.getCheckNo());
             if (!ok) {
                 throw exception(STOCKCHECK_CONFIRM_FAILED);
@@ -80,8 +86,10 @@ public class StockCheckServiceImpl implements StockCheckService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteStockCheck(Long id) {
-        StockCheckDO check = validateStockCheckExists(id);
+        StockCheckDO check = stockCheckMapper.selectForUpdate(id);
+        if (check == null) throw exception(STOCKCHECK_NOT_EXISTS);
         if (STATUS_CONFIRMED.equals(check.getStatus())) {
             throw exception(STOCKCHECK_CONFIRMED_CANNOT_DELETE);
         }
@@ -105,7 +113,7 @@ public class StockCheckServiceImpl implements StockCheckService {
      * 生成盘点单号：PD + yyyyMMddHHmmss
      */
     private String generateCheckNo() {
-        return "PD" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        return com.enterprise.module.biz.service.support.BizDocumentNo.next("PD");
     }
 
 }

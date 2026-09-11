@@ -25,6 +25,8 @@ public class ReturnPageReqVO extends PageParam {
     private String partyName;
 
     @Schema(description = "产品名称")
+    private Long productId;
+    private Long warehouseId;
     private String productName;
 
     @Schema(description = "退货日期范围")

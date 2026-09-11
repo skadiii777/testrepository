@@ -49,6 +49,14 @@ public class PaymentController {
         return success(true);
     }
 
+    @PostMapping("/reverse")
+    @Operation(summary = "冲销收付款流水（保留原流水）")
+    @PreAuthorize("@ss.hasPermission('biz:payment:reverse')")
+    public CommonResult<Long> reversePayment(@Valid @RequestBody
+            com.enterprise.module.biz.controller.admin.payment.vo.payment.PaymentReverseReqVO req) {
+        return success(paymentService.reversePayment(req.getId(), req.getReason()));
+    }
+
     @GetMapping("/page")
     @Operation(summary = "获得收付款流水分页")
     @PreAuthorize("@ss.hasPermission('biz:payment:query')")

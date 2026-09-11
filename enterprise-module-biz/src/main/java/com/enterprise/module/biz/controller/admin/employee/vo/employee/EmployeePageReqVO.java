@@ -18,6 +18,7 @@ import static com.enterprise.framework.common.util.date.DateUtils.FORMAT_YEAR_MO
 public class EmployeePageReqVO extends PageParam {
 
     @Schema(description = "工号")
+    private Long userId;
     private String empNo;
     @Schema(description = "姓名")
     private String empName;
