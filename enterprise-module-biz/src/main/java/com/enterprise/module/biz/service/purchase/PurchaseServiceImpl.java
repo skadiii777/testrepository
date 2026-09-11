@@ -36,9 +36,7 @@ public class PurchaseServiceImpl implements PurchaseService {
     public Long createPurchase(PurchaseSaveReqVO createReqVO) {
         PurchaseDO purchase = BeanUtils.toBean(createReqVO, PurchaseDO.class);
         purchase.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
-        if (purchase.getTotalAmount() == null) { // 总额 = 数量 × 单价
-            purchase.setTotalAmount(java.math.BigDecimal.valueOf(purchase.getQuantity()).multiply(purchase.getPrice()));
-        }
+        purchase.setTotalAmount(java.math.BigDecimal.valueOf(purchase.getQuantity()).multiply(purchase.getPrice())); // 总金额服务端强算，不信前端
         purchaseMapper.insert(purchase);
         return purchase.getId();
     }
@@ -61,16 +59,21 @@ public class PurchaseServiceImpl implements PurchaseService {
         } else {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
-        PurchaseDO update = new PurchaseDO();
-        update.setId(id);
-        update.setStatus(to);
-        purchaseMapper.updateById(update);
+        // CAS 状态流转：并发下仅一个请求成功，防止重复流转
+        if (purchaseMapper.updateStatusByCas(id, from, to) == 0) {
+            throw exception(ORDER_STATUS_TRANSITION_INVALID);
+        }
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void completePurchase(Long id) {
         PurchaseDO purchase = validatePurchaseExists(id);
         if (!"1".equals(purchase.getStatus())) {
+            throw exception(ORDER_STATUS_TRANSITION_INVALID);
+        }
+        // CAS 抢占状态：并发重复完成只有一个请求能改到，随后才动库存（失败回滚）
+        if (purchaseMapper.updateStatusByCas(id, "1", "2") == 0) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
         stockService.changeStock(purchase.getProductName(), "默认仓库", purchase.getQuantity(),
@@ -83,8 +86,24 @@ public class PurchaseServiceImpl implements PurchaseService {
     @Override
     public void updatePurchase(PurchaseSaveReqVO updateReqVO) {
         validatePurchaseExists(updateReqVO.getId());
+        // 已完成单据与库存流水绑定，禁止修改；纠错走退货/红冲
+        if ("2".equals(purchaseMapper.selectById(updateReqVO.getId()).getStatus())) {
+            throw exception(ORDER_COMPLETED_LOCKED);
+        }
         PurchaseDO updateObj = BeanUtils.toBean(updateReqVO, PurchaseDO.class);
         updateObj.setStatus(null); // 状态只能通过流转接口变更
+        // 总金额服务端强算：数量/单价留空取库内原值，且不信前端传入的 totalAmount
+        updateObj.setTotalAmount(null);
+        PurchaseDO current = purchaseMapper.selectById(updateReqVO.getId());
+        if (current != null) {
+            Long qty = updateObj.getQuantity() != null ? updateObj.getQuantity() : current.getQuantity();
+            java.math.BigDecimal price = updateObj.getPrice() != null ? updateObj.getPrice() : current.getPrice();
+            if (qty != null && price != null) {
+                updateObj.setTotalAmount(java.math.BigDecimal.valueOf(qty).multiply(price));
+                updateObj.setQuantity(qty);
+                updateObj.setPrice(price);
+            }
+        }
         purchaseMapper.updateById(updateObj);
     }
 
@@ -92,6 +111,10 @@ public class PurchaseServiceImpl implements PurchaseService {
     @Override
     public void deletePurchase(Long id) {
         validatePurchaseExists(id);
+        // 已完成单据与库存流水绑定，禁止删除
+        if ("2".equals(purchaseMapper.selectById(id).getStatus())) {
+            throw exception(ORDER_COMPLETED_LOCKED);
+        }
         purchaseMapper.deleteById(id);
     }
 

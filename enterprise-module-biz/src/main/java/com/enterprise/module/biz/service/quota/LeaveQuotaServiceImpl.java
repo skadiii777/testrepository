@@ -78,7 +78,12 @@ public class LeaveQuotaServiceImpl implements LeaveQuotaService {
         if (quota.getRemainDays().compareTo(days) < 0) {
             throw exception(LEAVE_QUOTA_NOT_ENOUGH);
         }
-        quotaMapper.adjustUsedDays(quota.getId(), days, quota.getQuotaDays());
+        // 原子扣减（SQL 条件 used_days+delta<=quota_days），检查影响行数：并发下扣减失败即报余额不足，
+        // 避免"审批通过但未扣余额"
+        int rows = quotaMapper.adjustUsedDays(quota.getId(), days, quota.getQuotaDays());
+        if (rows == 0) {
+            throw exception(LEAVE_QUOTA_NOT_ENOUGH);
+        }
     }
 
     @Override

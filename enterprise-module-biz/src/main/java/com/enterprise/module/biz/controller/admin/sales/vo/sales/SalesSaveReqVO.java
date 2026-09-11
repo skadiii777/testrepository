@@ -4,7 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 @Schema(description = "管理后台 - 销售单新增/修改 Request VO")
@@ -25,9 +27,11 @@ public class SalesSaveReqVO {
     private String productName;
     @Schema(description = "销售数量", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message="销售数量不能为空")
+    @Positive(message="销售数量必须大于0")
     private Long quantity;
     @Schema(description = "销售单价", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message="销售单价不能为空")
+    @DecimalMin(value = "0.01", message = "销售单价必须大于0")
     private BigDecimal price;
     @Schema(description = "总金额")
     

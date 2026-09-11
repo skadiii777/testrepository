@@ -1741,6 +1741,78 @@ def test_linkage():
     check("联动-清理完成", True, "")
 
 
+# ---------------- 23. 业务正确性加固（正数校验/状态CAS/已完成禁改/请假防重） ----------------
+def test_hardening():
+    import datetime as _dt
+    today = _dt.date.today().strftime("%Y-%m-%d")
+
+    # ① 负数校验：负数量/零单价被拒
+    r = jpost("/biz/sales/create", dict(salesCode="NEG001", customerName="负数测试",
+              productName=TAG + "加固货", quantity=-5, price=10, salesDate=today))
+    check("加固-负销售数量被拒", r.json().get("code") != 0, r.text[:150])
+    r = jpost("/biz/purchase/create", dict(purchaseCode="NEG002", supplierName="负数测试",
+              productName=TAG + "加固货", quantity=10, price=0, purchaseDate=today))
+    check("加固-零采购单价被拒", r.json().get("code") != 0, r.text[:150])
+
+    # ② 状态 CAS + 已完成禁改删
+    jpost("/biz/product/create", dict(productCode="R-HARD", productName=TAG + "加固货",
+                                      category="测试", unit="个", price=10, status="0"))
+    # 先采购入库 20 件（销售出库需要库存）
+    r = jpost("/biz/purchase/create", dict(purchaseCode="HARD-P0", supplierName="加固供应商",
+              productName=TAG + "加固货", quantity=20, price=10, purchaseDate=today))
+    check("加固-采购单创建", r.json().get("code") == 0, r.text[:150])
+    pid = r.json().get("data") or find_id("purchase", "purchaseCode", "HARD-P0")
+    jpost("/biz/purchase/transition", params={"id": pid, "action": "confirm"})
+    r = jpost("/biz/purchase/complete", params={"id": pid})
+    check("加固-采购入库20", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/sales/create", dict(salesCode="HARD01", customerName="加固客户",
+              productName=TAG + "加固货", quantity=5, price=10, salesDate=today))
+    check("加固-销售单创建", r.json().get("code") == 0, r.text[:150])
+    sid = r.json().get("data") or find_id("sales", "salesCode", "HARD01")
+    jpost("/biz/sales/transition", params={"id": sid, "action": "confirm"})
+    r = jpost("/biz/sales/complete", params={"id": sid})
+    check("加固-销售完成出库", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/sales/complete", params={"id": sid})
+    check("加固-重复完成被拒", r.json().get("code") != 0, r.text[:150])
+    r = jput("/biz/sales/update", dict(id=sid, salesCode="HARD01", customerName="加固客户",
+              productName=TAG + "加固货", quantity=99, price=10, salesDate=today))
+    check("加固-已完成禁改", r.json().get("code") != 0, r.text[:150])
+    r = jdelete("/biz/sales/delete", params={"id": sid})
+    check("加固-已完成禁删", r.json().get("code") != 0, r.text[:150])
+    # totalAmount 服务端强算
+    r = jpost("/biz/sales/create", dict(salesCode="HARD02", customerName="加固客户",
+              productName=TAG + "加固货", quantity=3, price=10, totalAmount=999999, salesDate=today))
+    sid2 = r.json().get("data")
+    r = jget("/biz/sales/get", params={"id": sid2})
+    check("加固-总额服务端强算", float(r.json().get("data", {}).get("totalAmount", 0)) == 30.0, r.text[:150])
+
+    # ③ 请假审批防重：配额+请假单→首次通过→重复审批被拒→余额只扣一次
+    emp = get_nickname()
+    r = jpost("/biz/quota/create", dict(empName=emp, leaveType="1", year=today[:4],
+              quotaDays=5, usedDays=0))
+    check("加固-建配额", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/leave/create", dict(empName=emp, leaveType="1", startDate=today,
+              endDate=today, days=1, reason="加固防重测试"))
+    check("加固-请假创建", r.json().get("code") == 0, r.text[:150])
+    lid = r.json().get("data") or find_id("leave", "empName", emp)
+    r = jpost("/biz/leave/audit", params={"id": lid, "status": "1", "auditRemark": "同意"})
+    check("加固-首次审批通过", r.json().get("code") == 0, r.text[:150])
+    r = jpost("/biz/leave/audit", params={"id": lid, "status": "1", "auditRemark": "再次通过"})
+    check("加固-重复审批被拒", r.json().get("code") != 0 and "重复" in r.json().get("msg", ""), r.text[:150])
+    r = jget("/biz/quota/page", params={"empName": emp, "pageNo": 1, "pageSize": 5})
+    qrows = [q for q in r.json().get("data", {}).get("list", []) if q.get("leaveType") == "1"]
+    check("加固-余额只扣一次", qrows and float(qrows[0].get("usedDays", 0)) == 1.0, str(qrows[:1]))
+
+    # 清理（HARD01 已完成保留作业务轨迹；其余可删的清理）
+    jdelete("/biz/sales/delete", params={"id": sid2})
+    for mod, key in [("leave", "empName"), ("quota", "empName")]:
+        r = jget("/biz/%s/page" % mod, params={key: emp, "pageNo": 1, "pageSize": 5})
+        for row in r.json().get("data", {}).get("list", []):
+            jdelete("/biz/%s/delete" % mod, params={"id": row["id"]})
+    # HARD01/HARD-P0 已完成单据与产品保留作业务轨迹（产品有库存流水引用）
+    check("加固-清理完成", True, "")
+
+
 if __name__ == "__main__":
     test_auth()
     seed_demo_data()
@@ -1770,6 +1842,7 @@ if __name__ == "__main__":
     test_online_security()
     test_im()
     test_linkage()
+    test_hardening()
     failed = [x for x in results if not x[1]]
     print("\n========== 测试汇总 ==========")
     print("总计: %d  通过: %d  失败: %d" % (len(results), len(results) - len(failed), len(failed)))

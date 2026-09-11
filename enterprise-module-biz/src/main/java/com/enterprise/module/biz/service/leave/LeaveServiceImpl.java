@@ -89,23 +89,25 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void auditLeave(Long id, String status, String auditRemark) {
         LeaveDO leave = leaveMapper.selectById(id);
         if (leave == null) {
             throw exception(LEAVE_NOT_EXISTS);
         }
+        // CAS 防重：仅待审批(0)可流转；重复审批/并发审批只会有一个成功
+        int rows = leaveMapper.updateStatusCas(id, status, auditRemark);
+        if (rows == 0) {
+            throw exception(LEAVE_ALREADY_AUDITED);
+        }
         if ("1".equals(status)) {
             leaveQuotaService.deductUsedDays(leave.getEmpName(), leave.getLeaveType(),
                     yearOf(leave.getStartDate()), leave.getDays());
         }
-        LeaveDO update = new LeaveDO();
-        update.setId(id);
-        update.setStatus(status);
-        update.setRemark(auditRemark);
-        leaveMapper.updateById(update);
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void cancelLeave(Long id, Long loginUserId) {
         LeaveDO leave = leaveMapper.selectById(id);
         if (leave == null) {
@@ -117,13 +119,12 @@ public class LeaveServiceImpl implements LeaveService {
         if (!"1".equals(leave.getStatus())) {
             throw exception(LEAVE_CANCEL_ONLY_APPROVED);
         }
+        // CAS 防重：仅已通过(1)可销假，重复销假只会有一个成功（避免重复返还余额）
+        if (leaveMapper.updateStatusByCas(id, "1", "3", "员工申请销假（提前返岗）") == 0) {
+            throw exception(LEAVE_ALREADY_AUDITED);
+        }
         leaveQuotaService.refundUsedDays(leave.getEmpName(), leave.getLeaveType(),
                 yearOf(leave.getStartDate()), leave.getDays());
-        LeaveDO update = new LeaveDO();
-        update.setId(id);
-        update.setStatus("3");
-        update.setRemark("员工申请销假（提前返岗）");
-        leaveMapper.updateById(update);
     }
 
     private String yearOf(String date) {

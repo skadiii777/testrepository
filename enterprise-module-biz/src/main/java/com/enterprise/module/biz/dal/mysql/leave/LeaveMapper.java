@@ -30,4 +30,26 @@ public interface LeaveMapper extends BaseMapperX<LeaveDO> {
         return selectMaps(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LeaveDO>()
                 .select("status", "count(*) AS cnt").groupBy("status"));
     }
+
+    /**
+     * 审批 CAS：仅待审批(0)可流转（请假用）
+     */
+    default int updateStatusCas(Long id, String toStatus, String auditRemark) {
+        return update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<LeaveDO>()
+                .eq(LeaveDO::getId, id)
+                .eq(LeaveDO::getStatus, "0")
+                .set(LeaveDO::getStatus, toStatus)
+                .set(LeaveDO::getRemark, auditRemark));
+    }
+
+    /**
+     * 销假 CAS：仅已通过(1)可流转到已销假(3)
+     */
+    default int updateStatusByCas(Long id, String fromStatus, String toStatus, String auditRemark) {
+        return update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<LeaveDO>()
+                .eq(LeaveDO::getId, id)
+                .eq(LeaveDO::getStatus, fromStatus)
+                .set(LeaveDO::getStatus, toStatus)
+                .set(LeaveDO::getRemark, auditRemark));
+    }
 }

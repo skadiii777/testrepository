@@ -71,4 +71,6 @@ public interface ErrorCodeConstants {
     ErrorCode BUSINESS_NOT_WIN = new ErrorCode(1_050_001_041, "仅已赢单的商机可以转为合同");
     ErrorCode PAYMENT_CONTRACT_NOT_EXISTS = new ErrorCode(1_050_001_042, "关联合同不存在");
     ErrorCode PAYMENT_TARGET_REQUIRED = new ErrorCode(1_050_001_043, "收付款必须关联单据或合同其一");
+    ErrorCode ORDER_COMPLETED_LOCKED = new ErrorCode(1_050_001_044, "已完成单据不可修改或删除，请走退货/红冲流程");
+    ErrorCode LEAVE_ALREADY_AUDITED = new ErrorCode(1_050_001_045, "该申请已审批，不能重复操作");
 }

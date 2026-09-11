@@ -36,9 +36,7 @@ public class SalesServiceImpl implements SalesService {
     public Long createSales(SalesSaveReqVO createReqVO) {
         SalesDO sales = BeanUtils.toBean(createReqVO, SalesDO.class);
         sales.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
-        if (sales.getTotalAmount() == null) { // 总额 = 数量 × 单价
-            sales.setTotalAmount(java.math.BigDecimal.valueOf(sales.getQuantity()).multiply(sales.getPrice()));
-        }
+        sales.setTotalAmount(java.math.BigDecimal.valueOf(sales.getQuantity()).multiply(sales.getPrice())); // 总金额服务端强算，不信前端
         salesMapper.insert(sales);
         return sales.getId();
     }
@@ -61,10 +59,10 @@ public class SalesServiceImpl implements SalesService {
         } else {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
-        SalesDO update = new SalesDO();
-        update.setId(id);
-        update.setStatus(to);
-        salesMapper.updateById(update);
+        // CAS 状态流转：并发下仅一个请求成功，防止重复流转
+        if (salesMapper.updateStatusByCas(id, from, to) == 0) {
+            throw exception(ORDER_STATUS_TRANSITION_INVALID);
+        }
     }
 
     @Override
@@ -72,6 +70,10 @@ public class SalesServiceImpl implements SalesService {
     public void completeSales(Long id) {
         SalesDO sales = validateSalesExists(id);
         if (!"1".equals(sales.getStatus())) {
+            throw exception(ORDER_STATUS_TRANSITION_INVALID);
+        }
+        // CAS 抢占状态：并发重复完成只有一个请求能改到，随后才动库存（失败回滚）
+        if (salesMapper.updateStatusByCas(id, "1", "2") == 0) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
         validateStockEnough(sales.getProductName(), sales.getQuantity());
@@ -96,8 +98,24 @@ public class SalesServiceImpl implements SalesService {
     @Override
     public void updateSales(SalesSaveReqVO updateReqVO) {
         validateSalesExists(updateReqVO.getId());
+        // 已完成单据与库存流水绑定，禁止修改；纠错走退货/红冲
+        if ("2".equals(salesMapper.selectById(updateReqVO.getId()).getStatus())) {
+            throw exception(ORDER_COMPLETED_LOCKED);
+        }
         SalesDO updateObj = BeanUtils.toBean(updateReqVO, SalesDO.class);
         updateObj.setStatus(null); // 状态只能通过流转接口变更
+        // 总金额服务端强算：数量/单价留空取库内原值，且不信前端传入的 totalAmount
+        updateObj.setTotalAmount(null);
+        SalesDO current = salesMapper.selectById(updateReqVO.getId());
+        if (current != null) {
+            Long qty = updateObj.getQuantity() != null ? updateObj.getQuantity() : current.getQuantity();
+            java.math.BigDecimal price = updateObj.getPrice() != null ? updateObj.getPrice() : current.getPrice();
+            if (qty != null && price != null) {
+                updateObj.setTotalAmount(java.math.BigDecimal.valueOf(qty).multiply(price));
+                updateObj.setQuantity(qty);
+                updateObj.setPrice(price);
+            }
+        }
         salesMapper.updateById(updateObj);
     }
 
@@ -105,6 +123,10 @@ public class SalesServiceImpl implements SalesService {
     @Override
     public void deleteSales(Long id) {
         validateSalesExists(id);
+        // 已完成单据与库存流水绑定，禁止删除
+        if ("2".equals(salesMapper.selectById(id).getStatus())) {
+            throw exception(ORDER_COMPLETED_LOCKED);
+        }
         salesMapper.deleteById(id);
     }
 
