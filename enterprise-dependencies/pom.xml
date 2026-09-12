@@ -51,6 +51,8 @@
         <mockito-inline.version>5.2.0</mockito-inline.version>
         <!-- Bpm 工作流相关 -->
         <flowable.version>8.0.0</flowable.version>
+        <!-- AI 相关 -->
+        <spring-ai.version>1.0.0</spring-ai.version>
         <!-- 工具类相关 -->
         <anji-plus-captcha.version>1.4.0</anji-plus-captcha.version>
         <jsoup.version>1.23.2</jsoup.version>
@@ -456,6 +458,18 @@
                 <version>${flowable.version}</version>
             </dependency>
             <!-- 工作流相关结束 -->
+
+            <!-- AI 相关 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-starter-model-ollama</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-vector-store</artifactId>
+                <version>${spring-ai.version}</version>
+            </dependency>
 
             <!-- 工具类相关 -->
             <dependency>

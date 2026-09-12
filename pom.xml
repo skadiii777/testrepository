@@ -19,6 +19,7 @@
         <module>enterprise-module-biz</module>
         <module>enterprise-module-bpm</module>
         <module>enterprise-module-im</module>
+        <module>enterprise-module-ai</module>
 <!--        <module>enterprise-module-member</module>-->
 <!--        <module>enterprise-module-bpm</module>-->
 <!--        <module>enterprise-module-report</module>-->
@@ -34,6 +35,7 @@
 <!--        <module>enterprise-module-fms</module>-->
 <!--        <module>enterprise-module-pms</module>-->
 <!--        <module>enterprise-module-im</module>-->
+<!--        <module>enterprise-module-ai</module>-->
 <!--        <module>enterprise-module-ai</module>-->
     </modules>
 
