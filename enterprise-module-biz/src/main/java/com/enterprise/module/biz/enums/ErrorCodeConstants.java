@@ -85,6 +85,10 @@ public interface ErrorCodeConstants {
     ErrorCode FMS_ACCOUNT_NOT_EXISTS = new ErrorCode(1_050_001_054, "会计科目不存在");
     ErrorCode FMS_VOUCHER_NOT_EXISTS = new ErrorCode(1_050_001_055, "记账凭证不存在");
     ErrorCode FMS_VOUCHER_ALREADY_POSTED = new ErrorCode(1_050_001_056, "凭证已记账，不能重复操作");
-    ErrorCode FMS_VOUCHER_NOT_BALANCED = new ErrorCode(1_050_001_057, "借贷方金额不相等，凭证不 平");
+    ErrorCode FMS_VOUCHER_NOT_BALANCED = new ErrorCode(1_050_001_057, "借贷方金额不相等，凭证不平");
     ErrorCode FMS_VOUCHER_POSTED_NO_DELETE = new ErrorCode(1_050_001_058, "已记账凭证不可删除，请先取消记账");
+    ErrorCode FMS_VOUCHER_NOT_POSTED = new ErrorCode(1_050_001_059, "凭证未记账，不能取消记账");
+    ErrorCode FMS_ACCOUNT_CODE_DUPLICATE = new ErrorCode(1_050_001_060, "科目编码已存在");
+    ErrorCode FMS_ACCOUNT_HAS_VOUCHER = new ErrorCode(1_050_001_061, "科目已被凭证分录引用，不能删除");
+    ErrorCode FMS_ACCOUNT_HAS_CHILD = new ErrorCode(1_050_001_062, "科目下存在子科目，不能删除");
 }

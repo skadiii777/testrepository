@@ -13,6 +13,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 import static com.enterprise.framework.common.pojo.CommonResult.success;
 
 @Tag(name = "管理后台 - 记账凭证")
@@ -78,5 +81,12 @@ public class FmsVoucherController {
     @PreAuthorize("@ss.hasPermission('biz:fms:voucher:query')")
     public CommonResult<PageResult<FmsVoucherRespVO>> getVoucherPage(@Valid FmsVoucherPageReqVO pageReqVO) {
         return success(voucherService.getVoucherPage(pageReqVO));
+    }
+
+    @GetMapping("/balance")
+    @Operation(summary = "科目余额表（仅统计已记账凭证）")
+    @PreAuthorize("@ss.hasPermission('biz:fms:voucher:query')")
+    public CommonResult<List<Map<String, Object>>> getAccountBalances() {
+        return success(voucherService.getAccountBalances());
     }
 }

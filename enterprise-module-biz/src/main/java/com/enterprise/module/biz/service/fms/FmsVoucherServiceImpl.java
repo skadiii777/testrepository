@@ -60,6 +60,8 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
         validateBalanced(reqVO.getEntries());
         FmsVoucherDO update = buildVoucher(reqVO);
         update.setId(reqVO.getId());
+        // 凭证号创建即固定，编辑不重新生成（null 字段 updateById 不更新）
+        update.setVoucherNo(null);
         voucherMapper.updateById(update);
         entryMapper.deleteByVoucherId(reqVO.getId());
         saveEntries(reqVO.getId(), reqVO.getEntries());
@@ -91,7 +93,7 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
     public void unpostVoucher(Long id) {
         FmsVoucherDO voucher = validateVoucherExists(id);
         if (voucher.getStatus() != STATUS_POSTED) {
-            throw exception(ErrorCodeConstants.FMS_VOUCHER_ALREADY_POSTED);
+            throw exception(ErrorCodeConstants.FMS_VOUCHER_NOT_POSTED);
         }
         FmsVoucherDO update = new FmsVoucherDO();
         update.setId(id);
@@ -116,36 +118,48 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
 
     @Override
     public List<Map<String, Object>> getAccountBalances() {
+        // 科目余额只统计已记账凭证的分录（草稿不进账）
+        List<Long> postedIds = voucherMapper.selectList(
+                        new LambdaQueryWrapperX<FmsVoucherDO>().eq(FmsVoucherDO::getStatus, STATUS_POSTED))
+                .stream().map(FmsVoucherDO::getId).collect(Collectors.toList());
+        if (postedIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         List<FmsVoucherEntryDO> allPosted = entryMapper.selectList(
-                new LambdaQueryWrapperX<FmsVoucherEntryDO>() {{
-                    // 需要联查已记账凭证
-                }});
-        // 简化：按 account_id 分组汇总
+                new LambdaQueryWrapperX<FmsVoucherEntryDO>().in(FmsVoucherEntryDO::getVoucherId, postedIds));
+        // 按 account_id 分组汇总
         Map<Long, BigDecimal> debitMap = new LinkedHashMap<>();
         Map<Long, BigDecimal> creditMap = new LinkedHashMap<>();
-        Map<Long, String> nameMap = new LinkedHashMap<>();
+        Map<Long, FmsVoucherEntryDO> sampleMap = new LinkedHashMap<>();
         for (FmsVoucherEntryDO e : allPosted) {
             debitMap.merge(e.getAccountId(), e.getDebitAmount(), BigDecimal::add);
             creditMap.merge(e.getAccountId(), e.getCreditAmount(), BigDecimal::add);
-            nameMap.put(e.getAccountId(), e.getAccountName());
+            sampleMap.putIfAbsent(e.getAccountId(), e);
         }
         List<Map<String, Object>> result = new ArrayList<>();
         for (var entry : debitMap.entrySet()) {
             Long accId = entry.getKey();
+            FmsVoucherEntryDO sample = sampleMap.get(accId);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("accountId", accId);
-            row.put("accountName", nameMap.get(accId));
+            row.put("accountCode", sample.getAccountCode());
+            row.put("accountName", sample.getAccountName());
             row.put("debitTotal", entry.getValue());
             row.put("creditTotal", creditMap.getOrDefault(accId, BigDecimal.ZERO));
             row.put("balance", entry.getValue().subtract(creditMap.getOrDefault(accId, BigDecimal.ZERO)));
             result.add(row);
         }
+        result.sort(Comparator.comparing(r -> String.valueOf(r.get("accountCode"))));
         return result;
     }
 
     @Override
     public BigDecimal getTotalBalance() {
-        return BigDecimal.ZERO; // 简化，看板用
+        // 期初为 0 的账套，总资产余额 = 已记账分录借方合计 - 贷方合计
+        List<Map<String, Object>> balances = getAccountBalances();
+        return balances.stream()
+                .map(r -> (BigDecimal) r.get("balance"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private FmsVoucherDO buildVoucher(FmsVoucherSaveReqVO reqVO) {

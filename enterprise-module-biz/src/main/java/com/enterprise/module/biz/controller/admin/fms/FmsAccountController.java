@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 import static com.enterprise.framework.common.pojo.CommonResult.success;
 
 @Tag(name = "管理后台 - 会计科目")
@@ -61,5 +63,11 @@ public class FmsAccountController {
     @PreAuthorize("@ss.hasPermission('biz:fms:account:query')")
     public CommonResult<PageResult<FmsAccountRespVO>> getAccountPage(@Valid FmsAccountPageReqVO pageReqVO) {
         return success(accountService.getAccountPage(pageReqVO));
+    }
+
+    @GetMapping("/simple-list")
+    @Operation(summary = "获得科目精简列表（凭证分录下拉用，登录即可）")
+    public CommonResult<List<FmsAccountRespVO>> getSimpleAccountList() {
+        return success(accountService.getSimpleAccountList());
     }
 }
