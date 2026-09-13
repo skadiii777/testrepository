@@ -11,7 +11,14 @@ import com.enterprise.framework.mybatis.core.query.LambdaQueryWrapperX;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import com.enterprise.module.biz.dal.dataobject.product.ProductDO;
+import com.enterprise.module.biz.dal.mysql.product.ProductMapper;
+import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.stock.StockService;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
@@ -21,15 +28,23 @@ import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
  *
  * @author 企业管理平台
  */
+@Slf4j
 @Service
 @Validated
 public class SalesServiceImpl implements SalesService {
+    private static final String ACC_INVENTORY = "1405";
+    private static final String ACC_COST = "6401";
+
     @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     @Resource
     private SalesMapper salesMapper;
     @Resource
     private StockService stockService;
+    @Resource
+    private ProductMapper productMapper;
+    @Resource
+    private FmsVoucherService fmsVoucherService;
 
 
 
@@ -86,6 +101,18 @@ public class SalesServiceImpl implements SalesService {
                 "sales", sales.getSalesCode());
         if (!ok) {
             throw exception(STOCK_NOT_ENOUGH);
+        }
+        // 自动凭证：销售出库结转成本 借主营业务成本 / 贷库存商品（按产品标准成本；未设成本则跳过并告警）
+        ProductDO product = productMapper.selectById(sales.getProductId());
+        BigDecimal cost = product != null ? product.getCost() : null;
+        if (cost == null || cost.signum() <= 0) {
+            log.warn("[completeSales] 产品 {} 未设置成本，销售单 {} 跳过结转凭证，请设置产品成本后手工补录",
+                    sales.getProductId(), sales.getSalesCode());
+        } else {
+            fmsVoucherService.createSimplePosted("sales", id, LocalDate.now(),
+                    "销售出库结转成本 " + sales.getSalesCode() + (sales.getCustomerName() != null ? "｜" + sales.getCustomerName() : ""),
+                    ACC_COST, ACC_INVENTORY,
+                    cost.multiply(BigDecimal.valueOf(sales.getQuantity())));
         }
         SalesDO update = new SalesDO();
         update.setId(id);

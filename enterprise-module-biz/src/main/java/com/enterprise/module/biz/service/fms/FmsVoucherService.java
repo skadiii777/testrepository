@@ -27,4 +27,12 @@ public interface FmsVoucherService {
      */
     Long createAutoPosted(String sourceType, Long sourceId, LocalDate voucherDate,
                           String summary, List<FmsVoucherSaveReqVO.Entry> entries);
+
+    /**
+     * 一借一贷两分录自动凭证（进销存/资金联动的通用形态）。
+     * 科目按编码解析（仅启用状态）；任一科目缺失时跳过并告警返回 null，不阻塞业务。
+     * 幂等：同一来源单据已有凭证直接返回已有 id。
+     */
+    Long createSimplePosted(String sourceType, Long sourceId, LocalDate voucherDate, String summary,
+                            String debitAccountCode, String creditAccountCode, BigDecimal amount);
 }

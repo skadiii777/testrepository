@@ -11,7 +11,11 @@ import com.enterprise.framework.mybatis.core.query.LambdaQueryWrapperX;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.stock.StockService;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
@@ -24,12 +28,17 @@ import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
 @Service
 @Validated
 public class PurchaseServiceImpl implements PurchaseService {
+    private static final String ACC_INVENTORY = "1405";
+    private static final String ACC_PAYABLE = "2202";
+
     @Resource private com.enterprise.module.biz.service.support.BizReferenceService references;
 
     @Resource
     private PurchaseMapper purchaseMapper;
     @Resource
     private StockService stockService;
+    @Resource
+    private FmsVoucherService fmsVoucherService;
 
 
 
@@ -84,6 +93,12 @@ public class PurchaseServiceImpl implements PurchaseService {
         }
         stockService.changeStock(purchase.getProductId(), purchase.getWarehouseId(), purchase.getQuantity(),
                 "purchase", purchase.getPurchaseCode());
+        // 自动凭证：采购入库 借库存商品 / 贷应付账款（赊购口径，付款时冲应付）
+        fmsVoucherService.createSimplePosted("purchase", id, LocalDate.now(),
+                "采购入库 " + purchase.getPurchaseCode() + (purchase.getSupplierName() != null ? "｜" + purchase.getSupplierName() : ""),
+                ACC_INVENTORY, ACC_PAYABLE,
+                purchase.getPrice() != null && purchase.getQuantity() != null
+                        ? purchase.getPrice().multiply(BigDecimal.valueOf(purchase.getQuantity())) : null);
         PurchaseDO update = new PurchaseDO();
         update.setId(id);
         update.setStatus("2");

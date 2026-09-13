@@ -12,6 +12,7 @@ import com.enterprise.module.biz.dal.mysql.fms.FmsVoucherEntryMapper;
 import com.enterprise.module.biz.dal.mysql.fms.FmsVoucherMapper;
 import com.enterprise.module.biz.enums.ErrorCodeConstants;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
 
+@Slf4j
 @Service
 @Validated
 public class FmsVoucherServiceImpl implements FmsVoucherService {
@@ -134,6 +136,40 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
         voucherMapper.insert(voucher);
         saveEntries(voucher.getId(), entries);
         return voucher.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createSimplePosted(String sourceType, Long sourceId, LocalDate voucherDate, String summary,
+                                   String debitAccountCode, String creditAccountCode, BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            return null;
+        }
+        Long debitId = accountIdByCode(debitAccountCode);
+        Long creditId = accountIdByCode(creditAccountCode);
+        if (debitId == null || creditId == null) {
+            log.warn("[createSimplePosted] 标准科目({}/{})缺失或停用，{} 来源 {} 未自动生成凭证，请手工补录",
+                    debitAccountCode, creditAccountCode, sourceType, sourceId);
+            return null;
+        }
+        FmsVoucherSaveReqVO.Entry debit = new FmsVoucherSaveReqVO.Entry();
+        debit.setAccountId(debitId);
+        debit.setSummary(summary);
+        debit.setDebitAmount(amount);
+        FmsVoucherSaveReqVO.Entry credit = new FmsVoucherSaveReqVO.Entry();
+        credit.setAccountId(creditId);
+        credit.setSummary(summary);
+        credit.setCreditAmount(amount);
+        return createAutoPosted(sourceType, sourceId, voucherDate, summary, List.of(debit, credit));
+    }
+
+    private Long accountIdByCode(String code) {
+        FmsAccountDO account = accountMapper.selectOne(
+                new LambdaQueryWrapperX<FmsAccountDO>()
+                        .eq(FmsAccountDO::getCode, code)
+                        .eq(FmsAccountDO::getStatus, 0)
+                        .last("LIMIT 1"));
+        return account != null ? account.getId() : null;
     }
 
     private BigDecimal sumSide(List<FmsVoucherSaveReqVO.Entry> entries, boolean debit) {

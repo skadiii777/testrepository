@@ -59,6 +59,15 @@ public class ReturnServiceImpl implements ReturnService {
     private com.enterprise.module.biz.service.payment.PaymentService paymentService;
     @Resource
     private StockService stockService;
+    @Resource
+    private com.enterprise.module.biz.dal.mysql.product.ProductMapper productMapper;
+    @Resource
+    private com.enterprise.module.biz.service.fms.FmsVoucherService fmsVoucherService;
+
+    /** 自动凭证科目：库存商品/应付账款/主营业务成本 */
+    private static final String ACC_INVENTORY = "1405";
+    private static final String ACC_PAYABLE = "2202";
+    private static final String ACC_COST = "6401";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -178,6 +187,22 @@ public class ReturnServiceImpl implements ReturnService {
         }
         // 红字收付款：冲减原单已收付（不超原单累计已收付），让资金口径与货权一致
         autoRedFlash(ret);
+        // 自动凭证：销售退货入库 借库存商品/贷主营业务成本（成本冲回）；采购退货出库 借应付账款/贷库存商品
+        BigDecimal amount = ret.getPrice() != null ? ret.getPrice().multiply(BigDecimal.valueOf(ret.getQuantity())) : null;
+        String summary = (RETURN_TYPE_SALES.equals(ret.getReturnType()) ? "销售退货入库 " : "采购退货出库 ") + ret.getReturnNo();
+        if (RETURN_TYPE_SALES.equals(ret.getReturnType())) {
+            var product = productMapper.selectById(ret.getProductId());
+            BigDecimal cost = product != null ? product.getCost() : null;
+            if (cost == null || cost.signum() <= 0) {
+                log.warn("[executeReturn] 产品 {} 未设置成本，退货单 {} 跳过成本冲回凭证", ret.getProductId(), ret.getReturnNo());
+            } else {
+                fmsVoucherService.createSimplePosted("return", id, LocalDateTime.now().toLocalDate(),
+                        summary, ACC_INVENTORY, ACC_COST, cost.multiply(BigDecimal.valueOf(ret.getQuantity())));
+            }
+        } else {
+            fmsVoucherService.createSimplePosted("return", id, LocalDateTime.now().toLocalDate(),
+                    summary, ACC_PAYABLE, ACC_INVENTORY, amount);
+        }
         ReturnDO update = new ReturnDO();
         update.setId(id);
         update.setStatus(RETURN_STATUS_RETURNED);

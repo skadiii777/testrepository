@@ -9,8 +9,6 @@ import com.enterprise.module.biz.dal.mysql.payment.PaymentMapper;
 import com.enterprise.module.biz.dal.mysql.sales.SalesMapper;
 import com.enterprise.module.biz.dal.mysql.purchase.PurchaseMapper;
 import com.enterprise.module.biz.dal.mysql.contract.ContractMapper;
-import com.enterprise.module.biz.controller.admin.fms.vo.fms.FmsVoucherSaveReqVO;
-import com.enterprise.module.biz.service.fms.FmsAccountService;
 import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.support.BizDocumentNo;
 import jakarta.annotation.Resource;
@@ -32,14 +30,13 @@ public class PaymentServiceImpl implements PaymentService {
     /** 自动凭证用的标准科目编码（对应 fms_voucher.sql 种子，缺失则降级不生成） */
     private static final String ACC_CASH = "1001";
     private static final String ACC_BANK = "1002";
-    private static final String ACC_INVENTORY = "1405";
+    private static final String ACC_PAYABLE = "2202";
     private static final String ACC_REVENUE = "6001";
 
     @Resource private PaymentMapper paymentMapper;
     @Resource private SalesMapper salesMapper;
     @Resource private PurchaseMapper purchaseMapper;
     @Resource private ContractMapper contractMapper;
-    @Resource private FmsAccountService fmsAccountService;
     @Resource private FmsVoucherService fmsVoucherService;
 
     /** All money changes lock the same order (or standalone contract) before reading any ledger totals. */
@@ -196,7 +193,8 @@ public class PaymentServiceImpl implements PaymentService {
     }
     /**
      * 收付款流水自动生成已记账凭证（与收付款同事务，流水落库即入账）。
-     * 方向：收款=借货币资金/贷收入，付款=借库存商品/贷货币资金；负数流水（冲销/退货红冲）取反向分录。
+     * 方向：收款=借货币资金/贷主营业务收入；付款=借应付账款/贷货币资金（赊购口径，
+     * 入库凭证借库存/贷应付，付款冲应付）；负数流水（冲销/退货红冲）取反向分录。
      * 幂等：同一流水 id 只生成一张；标准科目被删时降级跳过并告警，不阻塞资金主流程。
      */
     private void createAutoVoucher(PaymentDO p) {
@@ -205,30 +203,14 @@ public class PaymentServiceImpl implements PaymentService {
         boolean income = "1".equals(p.getPaymentType());
         boolean negative = p.getAmount().signum() < 0;
         String moneyCode = "1".equals(p.getPaymentMethod()) ? ACC_CASH : ACC_BANK;
-        String oppositeCode = income ? ACC_REVENUE : ACC_INVENTORY;
-        Long moneyAcc = fmsAccountService.getAccountIdByCode(moneyCode);
-        Long oppositeAcc = fmsAccountService.getAccountIdByCode(oppositeCode);
-        if (moneyAcc == null || oppositeAcc == null) {
-            log.warn("[createAutoVoucher] 标准科目({}/{})缺失，收付款 {} 未自动生成凭证，请手工补录",
-                    moneyCode, oppositeCode, p.getPaymentNo());
-            return;
-        }
+        String oppositeCode = income ? ACC_REVENUE : ACC_PAYABLE;
         // 正向收款/负向付款：借货币资金；正向付款/负向收款：借对方科目
-        boolean debitMoney = income != negative;
-        Long debitAcc = debitMoney ? moneyAcc : oppositeAcc;
-        Long creditAcc = debitMoney ? oppositeAcc : moneyAcc;
+        String debitCode = (income != negative) ? moneyCode : oppositeCode;
+        String creditCode = (income != negative) ? oppositeCode : moneyCode;
         String action = negative ? (income ? "收款冲销" : "付款冲销") : (income ? "收款" : "付款");
         String summary = action + " " + p.getPaymentNo() + (p.getPartyName() != null ? "｜" + p.getPartyName() : "");
-        FmsVoucherSaveReqVO.Entry debit = new FmsVoucherSaveReqVO.Entry();
-        debit.setAccountId(debitAcc);
-        debit.setSummary(summary);
-        debit.setDebitAmount(amount);
-        FmsVoucherSaveReqVO.Entry credit = new FmsVoucherSaveReqVO.Entry();
-        credit.setAccountId(creditAcc);
-        credit.setSummary(summary);
-        credit.setCreditAmount(amount);
-        fmsVoucherService.createAutoPosted("payment", p.getId(),
-                LocalDate.parse(p.getPaymentDate()), summary, List.of(debit, credit));
+        fmsVoucherService.createSimplePosted("payment", p.getId(),
+                LocalDate.parse(p.getPaymentDate()), summary, debitCode, creditCode, amount);
     }
 
     private BigDecimal sum(List<PaymentDO> rows) {
