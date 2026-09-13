@@ -12,6 +12,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import com.enterprise.module.biz.service.fms.FmsVoucherService;
+import com.enterprise.module.biz.service.wms.WmsTaskService;
 import com.enterprise.module.biz.service.stock.StockService;
 
 import java.math.BigDecimal;
@@ -39,6 +40,8 @@ public class PurchaseServiceImpl implements PurchaseService {
     private StockService stockService;
     @Resource
     private FmsVoucherService fmsVoucherService;
+    @Resource
+    private WmsTaskService wmsTaskService;
 
 
 
@@ -99,6 +102,8 @@ public class PurchaseServiceImpl implements PurchaseService {
                 ACC_INVENTORY, ACC_PAYABLE,
                 purchase.getPrice() != null && purchase.getQuantity() != null
                         ? purchase.getPrice().multiply(BigDecimal.valueOf(purchase.getQuantity())) : null);
+        // WMS：生成上架任务（库位上架时按 FIFO 消耗）
+        wmsTaskService.createPutawayTask(purchase);
         PurchaseDO update = new PurchaseDO();
         update.setId(id);
         update.setStatus("2");

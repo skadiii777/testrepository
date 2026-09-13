@@ -47,6 +47,8 @@ public class WmsStockServiceImpl implements WmsStockService {
     private ProductMapper productMapper;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private WmsTaskService taskService;
 
     @Override
     public PageResult<WmsLocationStockDO> getStockPage(WmsStockPageReqVO pageReqVO) {
@@ -102,6 +104,8 @@ public class WmsStockServiceImpl implements WmsStockService {
         adjustLocationStock(location, reqVO.getProductId(), product.getProductName(), reqVO.getQuantity());
         insertMove("putaway", location.getWarehouseId(), reqVO.getProductId(), product.getProductName(),
                 reqVO.getQuantity(), null, null, location.getId(), location.getCode(), reqVO.getRemark());
+        // WMS W2：消耗上架任务（FIFO，部分上架支持）
+        taskService.consumePutaway(location.getWarehouseId(), reqVO.getProductId(), reqVO.getQuantity());
     }
 
     @Override
@@ -113,6 +117,8 @@ public class WmsStockServiceImpl implements WmsStockService {
         deductLocationStock(from, reqVO.getProductId(), reqVO.getQuantity());
         insertMove("remove", from.getWarehouseId(), reqVO.getProductId(), product.getProductName(),
                 reqVO.getQuantity(), from.getId(), from.getCode(), null, null, reqVO.getRemark());
+        // WMS W2：消耗拣货任务（FIFO，部分拣货支持）
+        taskService.consumePick(from.getWarehouseId(), reqVO.getProductId(), reqVO.getQuantity());
     }
 
     @Override

@@ -26,6 +26,8 @@ public class WmsStockController {
 
     @Resource
     private WmsStockService stockService;
+    @Resource
+    private com.enterprise.module.biz.service.wms.WmsTaskService taskService;
 
     @GetMapping("/page")
     @Operation(summary = "获得库位库存分页")
@@ -72,5 +74,14 @@ public class WmsStockController {
     @PreAuthorize("@ss.hasPermission('biz:wms:stock:query')")
     public CommonResult<PageResult<WmsMoveRespVO>> getMovePage(@Valid WmsMovePageReqVO pageReqVO) {
         return success(stockService.getMovePage(pageReqVO));
+    }
+
+    @GetMapping("/task-page")
+    @Operation(summary = "获得作业任务分页（type=putaway 上架 / pick 拣货）")
+    @Parameter(name = "type", description = "任务类型", required = true)
+    @PreAuthorize("@ss.hasPermission('biz:wms:stock:query')")
+    public CommonResult<PageResult<WmsTaskRespVO>> getTaskPage(
+            @RequestParam("type") String type, @Valid WmsTaskPageReqVO pageReqVO) {
+        return success(taskService.getTaskPage(type, pageReqVO));
     }
 }

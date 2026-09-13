@@ -14,6 +14,7 @@ import org.springframework.validation.annotation.Validated;
 import com.enterprise.module.biz.dal.dataobject.product.ProductDO;
 import com.enterprise.module.biz.dal.mysql.product.ProductMapper;
 import com.enterprise.module.biz.service.fms.FmsVoucherService;
+import com.enterprise.module.biz.service.wms.WmsTaskService;
 import com.enterprise.module.biz.service.stock.StockService;
 
 import java.math.BigDecimal;
@@ -45,6 +46,8 @@ public class SalesServiceImpl implements SalesService {
     private ProductMapper productMapper;
     @Resource
     private FmsVoucherService fmsVoucherService;
+    @Resource
+    private WmsTaskService wmsTaskService;
 
 
 
@@ -114,6 +117,8 @@ public class SalesServiceImpl implements SalesService {
                     ACC_COST, ACC_INVENTORY,
                     cost.multiply(BigDecimal.valueOf(sales.getQuantity())));
         }
+        // WMS：生成拣货任务（销售完成后主库存已扣，库位待拣货下架）
+        wmsTaskService.createPickTask(sales);
         SalesDO update = new SalesDO();
         update.setId(id);
         update.setStatus("2");
