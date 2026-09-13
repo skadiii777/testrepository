@@ -77,6 +77,15 @@ public class FmsAccountServiceImpl implements FmsAccountService {
         return BeanUtils.toBean(list, FmsAccountRespVO.class);
     }
 
+    @Override
+    public Long getAccountIdByCode(String code) {
+        FmsAccountDO account = accountMapper.selectOne(new LambdaQueryWrapper<FmsAccountDO>()
+                .eq(FmsAccountDO::getCode, code)
+                .eq(FmsAccountDO::getStatus, 0)
+                .last("LIMIT 1"));
+        return account != null ? account.getId() : null;
+    }
+
     private void validateExists(Long id) {
         if (accountMapper.selectById(id) == null) {
             throw exception(ErrorCodeConstants.FMS_ACCOUNT_NOT_EXISTS);

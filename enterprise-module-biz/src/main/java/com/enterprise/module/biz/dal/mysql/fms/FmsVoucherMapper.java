@@ -11,11 +11,23 @@ import org.apache.ibatis.annotations.Mapper;
 public interface FmsVoucherMapper extends BaseMapperX<FmsVoucherDO> {
 
     default PageResult<FmsVoucherDO> selectPage(FmsVoucherPageReqVO reqVO) {
-        return selectPage(reqVO, new LambdaQueryWrapperX<FmsVoucherDO>()
+        LambdaQueryWrapperX<FmsVoucherDO> wrapper = new LambdaQueryWrapperX<FmsVoucherDO>()
                 .likeIfPresent(FmsVoucherDO::getVoucherNo, reqVO.getVoucherNo())
                 .eqIfPresent(FmsVoucherDO::getStatus, reqVO.getStatus())
-                .betweenIfPresent(FmsVoucherDO::getVoucherDate, reqVO.getVoucherDateRange())
-                .orderByDesc(FmsVoucherDO::getId));
+                .betweenIfPresent(FmsVoucherDO::getVoucherDate, reqVO.getVoucherDateRange());
+        // 手工凭证 source_type 为 NULL，选「manual」时按 IS NULL 过滤
+        if ("manual".equals(reqVO.getSourceType())) {
+            wrapper.isNull(FmsVoucherDO::getSourceType);
+        } else {
+            wrapper.eqIfPresent(FmsVoucherDO::getSourceType, reqVO.getSourceType());
+        }
+        return selectPage(reqVO, wrapper.orderByDesc(FmsVoucherDO::getId));
+    }
+
+    default FmsVoucherDO selectBySource(String sourceType, Long sourceId) {
+        return selectOne(new LambdaQueryWrapperX<FmsVoucherDO>()
+                .eq(FmsVoucherDO::getSourceType, sourceType)
+                .eq(FmsVoucherDO::getSourceId, sourceId));
     }
 
 }

@@ -9,24 +9,38 @@ import com.enterprise.module.biz.dal.mysql.payment.PaymentMapper;
 import com.enterprise.module.biz.dal.mysql.sales.SalesMapper;
 import com.enterprise.module.biz.dal.mysql.purchase.PurchaseMapper;
 import com.enterprise.module.biz.dal.mysql.contract.ContractMapper;
+import com.enterprise.module.biz.controller.admin.fms.vo.fms.FmsVoucherSaveReqVO;
+import com.enterprise.module.biz.service.fms.FmsAccountService;
+import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.support.BizDocumentNo;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+
 import static com.enterprise.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static com.enterprise.module.biz.enums.ErrorCodeConstants.*;
 
+@Slf4j
 @Service
 @Validated
 public class PaymentServiceImpl implements PaymentService {
+    /** 自动凭证用的标准科目编码（对应 fms_voucher.sql 种子，缺失则降级不生成） */
+    private static final String ACC_CASH = "1001";
+    private static final String ACC_BANK = "1002";
+    private static final String ACC_INVENTORY = "1405";
+    private static final String ACC_REVENUE = "6001";
+
     @Resource private PaymentMapper paymentMapper;
     @Resource private SalesMapper salesMapper;
     @Resource private PurchaseMapper purchaseMapper;
     @Resource private ContractMapper contractMapper;
+    @Resource private FmsAccountService fmsAccountService;
+    @Resource private FmsVoucherService fmsVoucherService;
 
     /** All money changes lock the same order (or standalone contract) before reading any ledger totals. */
     private PaymentDO lockTarget(String type, Long orderId, Long contractId) {
@@ -94,6 +108,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPartyName(target.getPartyName());
         payment.setPaymentNo(BizDocumentNo.next("1".equals(req.getPaymentType()) ? "SK" : "FK"));
         paymentMapper.insert(payment);
+        createAutoVoucher(payment);
         return payment.getId();
     }
 
@@ -134,6 +149,7 @@ public class PaymentServiceImpl implements PaymentService {
         reversal.setRequestId("reverse:" + id);
         reversal.setRemark(reason.trim());
         paymentMapper.insert(reversal);
+        createAutoVoucher(reversal);
         return reversal.getId();
     }
 
@@ -146,28 +162,75 @@ public class PaymentServiceImpl implements PaymentService {
         if (ledger.stream().anyMatch(p -> Objects.equals(p.getSourceReturnId(), ret.getId()))) return;
         BigDecimal remaining = ret.getTotalAmount();
         if (remaining == null || remaining.signum() <= 0) return;
-        Map<Long, BigDecimal> balances = new LinkedHashMap<>();
-        for (PaymentDO p : ledger) balances.merge(p.getContractId(), p.getAmount(), BigDecimal::add);
-        for (var entry : balances.entrySet()) {
-            BigDecimal refund = remaining.min(entry.getValue());
-            if (refund.signum() <= 0) continue;
-            PaymentDO flash = new PaymentDO();
-            flash.setPaymentNo(BizDocumentNo.next("HK"));
-            flash.setPaymentType(type);
-            flash.setBizType(type);
-            flash.setOrderId(ret.getOrderId());
-            flash.setOrderCode(ret.getOrderCode());
-            flash.setPartyName(ret.getPartyName());
-            flash.setContractId(entry.getKey());
-            flash.setAmount(refund.negate());
-            flash.setPaymentDate(LocalDate.now().toString());
-            flash.setSourceReturnId(ret.getId());
-            flash.setRequestId("return:" + ret.getId() + ":" + entry.getKey());
-            flash.setRemark("退货红冲：" + ret.getReturnNo());
-            paymentMapper.insert(flash);
-            remaining = remaining.subtract(refund);
+        // 按 合同×收付方式 汇总净余额，红冲时沿用对应货币资金科目（现金收款退现金、银行收款退银行）
+        Map<Long, Map<String, BigDecimal>> balances = new LinkedHashMap<>();
+        for (PaymentDO p : ledger) {
+            String method = p.getPaymentMethod() == null ? "2" : p.getPaymentMethod();
+            balances.computeIfAbsent(p.getContractId(), k -> new LinkedHashMap<>())
+                    .merge(method, p.getAmount(), BigDecimal::add);
+        }
+        for (var byContract : balances.entrySet()) {
+            for (var byMethod : byContract.getValue().entrySet()) {
+                BigDecimal refund = remaining.min(byMethod.getValue());
+                if (refund.signum() <= 0) continue;
+                PaymentDO flash = new PaymentDO();
+                flash.setPaymentNo(BizDocumentNo.next("HK"));
+                flash.setPaymentType(type);
+                flash.setBizType(type);
+                flash.setOrderId(ret.getOrderId());
+                flash.setOrderCode(ret.getOrderCode());
+                flash.setPartyName(ret.getPartyName());
+                flash.setContractId(byContract.getKey());
+                flash.setAmount(refund.negate());
+                flash.setPaymentDate(LocalDate.now().toString());
+                flash.setPaymentMethod(byMethod.getKey());
+                flash.setSourceReturnId(ret.getId());
+                flash.setRequestId("return:" + ret.getId() + ":" + byContract.getKey() + ":" + byMethod.getKey());
+                flash.setRemark("退货红冲：" + ret.getReturnNo());
+                paymentMapper.insert(flash);
+                createAutoVoucher(flash);
+                remaining = remaining.subtract(refund);
+                if (remaining.signum() <= 0) return;
+            }
         }
     }
+    /**
+     * 收付款流水自动生成已记账凭证（与收付款同事务，流水落库即入账）。
+     * 方向：收款=借货币资金/贷收入，付款=借库存商品/贷货币资金；负数流水（冲销/退货红冲）取反向分录。
+     * 幂等：同一流水 id 只生成一张；标准科目被删时降级跳过并告警，不阻塞资金主流程。
+     */
+    private void createAutoVoucher(PaymentDO p) {
+        BigDecimal amount = p.getAmount() == null ? BigDecimal.ZERO : p.getAmount().abs();
+        if (amount.signum() <= 0) return;
+        boolean income = "1".equals(p.getPaymentType());
+        boolean negative = p.getAmount().signum() < 0;
+        String moneyCode = "1".equals(p.getPaymentMethod()) ? ACC_CASH : ACC_BANK;
+        String oppositeCode = income ? ACC_REVENUE : ACC_INVENTORY;
+        Long moneyAcc = fmsAccountService.getAccountIdByCode(moneyCode);
+        Long oppositeAcc = fmsAccountService.getAccountIdByCode(oppositeCode);
+        if (moneyAcc == null || oppositeAcc == null) {
+            log.warn("[createAutoVoucher] 标准科目({}/{})缺失，收付款 {} 未自动生成凭证，请手工补录",
+                    moneyCode, oppositeCode, p.getPaymentNo());
+            return;
+        }
+        // 正向收款/负向付款：借货币资金；正向付款/负向收款：借对方科目
+        boolean debitMoney = income != negative;
+        Long debitAcc = debitMoney ? moneyAcc : oppositeAcc;
+        Long creditAcc = debitMoney ? oppositeAcc : moneyAcc;
+        String action = negative ? (income ? "收款冲销" : "付款冲销") : (income ? "收款" : "付款");
+        String summary = action + " " + p.getPaymentNo() + (p.getPartyName() != null ? "｜" + p.getPartyName() : "");
+        FmsVoucherSaveReqVO.Entry debit = new FmsVoucherSaveReqVO.Entry();
+        debit.setAccountId(debitAcc);
+        debit.setSummary(summary);
+        debit.setDebitAmount(amount);
+        FmsVoucherSaveReqVO.Entry credit = new FmsVoucherSaveReqVO.Entry();
+        credit.setAccountId(creditAcc);
+        credit.setSummary(summary);
+        credit.setCreditAmount(amount);
+        fmsVoucherService.createAutoPosted("payment", p.getId(),
+                LocalDate.parse(p.getPaymentDate()), summary, List.of(debit, credit));
+    }
+
     private BigDecimal sum(List<PaymentDO> rows) {
         return rows.stream().map(PaymentDO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }

@@ -25,6 +25,10 @@ public class FmsVoucherRespVO {
     private BigDecimal debitTotal;
     @Schema(description = "贷方合计")
     private BigDecimal creditTotal;
+    @Schema(description = "来源类型（payment=收付款 return=退货 manual=手工）")
+    private String sourceType;
+    @Schema(description = "来源单据ID")
+    private Long sourceId;
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
     @Schema(description = "分录明细列表")

@@ -15,6 +15,8 @@ public class FmsVoucherPageReqVO extends PageParam {
     private String voucherNo;
     @Schema(description = "状态（0草稿 1已记账）")
     private Integer status;
+    @Schema(description = "来源类型（payment=收付款 return=退货 manual=手工）", example = "payment")
+    private String sourceType;
     @Schema(description = "凭证日期范围")
     private String[] voucherDateRange;
 }

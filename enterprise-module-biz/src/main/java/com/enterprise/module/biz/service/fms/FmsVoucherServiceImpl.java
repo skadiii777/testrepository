@@ -117,6 +117,33 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createAutoPosted(String sourceType, Long sourceId, LocalDate voucherDate,
+                                 String summary, List<FmsVoucherSaveReqVO.Entry> entries) {
+        // 幂等：同一来源单据已有凭证直接返回
+        FmsVoucherDO existing = voucherMapper.selectBySource(sourceType, sourceId);
+        if (existing != null) {
+            return existing.getId();
+        }
+        validateBalanced(entries);
+        FmsVoucherDO voucher = buildVoucherForDate(voucherDate, summary,
+                sumSide(entries, true), sumSide(entries, false));
+        voucher.setStatus(STATUS_POSTED);
+        voucher.setSourceType(sourceType);
+        voucher.setSourceId(sourceId);
+        voucherMapper.insert(voucher);
+        saveEntries(voucher.getId(), entries);
+        return voucher.getId();
+    }
+
+    private BigDecimal sumSide(List<FmsVoucherSaveReqVO.Entry> entries, boolean debit) {
+        return entries.stream()
+                .map(e -> debit ? e.getDebitAmount() : e.getCreditAmount())
+                .map(a -> a != null ? a : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    @Override
     public List<Map<String, Object>> getAccountBalances() {
         // 科目余额只统计已记账凭证的分录（草稿不进账）
         List<Long> postedIds = voucherMapper.selectList(
@@ -163,17 +190,17 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
     }
 
     private FmsVoucherDO buildVoucher(FmsVoucherSaveReqVO reqVO) {
-        BigDecimal debitTotal = reqVO.getEntries().stream()
-                .map(e -> e.getDebitAmount() != null ? e.getDebitAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal creditTotal = reqVO.getEntries().stream()
-                .map(e -> e.getCreditAmount() != null ? e.getCreditAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return buildVoucherForDate(reqVO.getVoucherDate(), reqVO.getSummary(),
+                sumSide(reqVO.getEntries(), true), sumSide(reqVO.getEntries(), false));
+    }
+
+    private FmsVoucherDO buildVoucherForDate(LocalDate voucherDate, String summary,
+                                             BigDecimal debitTotal, BigDecimal creditTotal) {
         FmsVoucherDO voucher = new FmsVoucherDO();
         voucher.setVoucherNo("JZ" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
                 + System.currentTimeMillis() % 10000);
-        voucher.setVoucherDate(reqVO.getVoucherDate());
-        voucher.setSummary(reqVO.getSummary());
+        voucher.setVoucherDate(voucherDate);
+        voucher.setSummary(summary);
         voucher.setDebitTotal(debitTotal);
         voucher.setCreditTotal(creditTotal);
         return voucher;
