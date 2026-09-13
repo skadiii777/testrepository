@@ -91,4 +91,13 @@ public interface ErrorCodeConstants {
     ErrorCode FMS_ACCOUNT_CODE_DUPLICATE = new ErrorCode(1_050_001_060, "科目编码已存在");
     ErrorCode FMS_ACCOUNT_HAS_VOUCHER = new ErrorCode(1_050_001_061, "科目已被凭证分录引用，不能删除");
     ErrorCode FMS_ACCOUNT_HAS_CHILD = new ErrorCode(1_050_001_062, "科目下存在子科目，不能删除");
+    ErrorCode WMS_LOCATION_NOT_EXISTS = new ErrorCode(1_050_001_063, "库位不存在");
+    ErrorCode WMS_LOCATION_DUPLICATE = new ErrorCode(1_050_001_064, "该仓库下已存在相同编码的库位");
+    ErrorCode WMS_LOCATION_HAS_STOCK = new ErrorCode(1_050_001_065, "库位上仍有库存，不能删除");
+    ErrorCode WMS_LOCATION_DISABLED = new ErrorCode(1_050_001_066, "库位已停用，不能操作");
+    ErrorCode WMS_QUANTITY_INVALID = new ErrorCode(1_050_001_067, "数量必须为正数");
+    ErrorCode WMS_UNASSIGNED_NOT_ENOUGH = new ErrorCode(1_050_001_068, "未分配库存不足，请核对仓库库存与已上架数量");
+    ErrorCode WMS_LOCATION_STOCK_NOT_ENOUGH = new ErrorCode(1_050_001_069, "库位库存不足");
+    ErrorCode WMS_LOCATION_WAREHOUSE_MISMATCH = new ErrorCode(1_050_001_070, "移库的两个库位必须属于同一仓库");
+    ErrorCode WMS_LOCATION_NO_STOCK = new ErrorCode(1_050_001_071, "该仓库尚未建立此产品库存，请先通过采购入库");
 }
