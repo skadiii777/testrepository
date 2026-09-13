@@ -82,4 +82,9 @@ public interface ErrorCodeConstants {
     ErrorCode MASTER_REFERENCE_INVALID = new ErrorCode(1_050_001_051, "基础资料不存在或名称不唯一，请选择明确的编号");
     ErrorCode STOCK_DUPLICATE = new ErrorCode(1_050_001_052, "该产品在此仓库已有库存记录");
     ErrorCode STOCK_IDENTITY_LOCKED = new ErrorCode(1_050_001_053, "库存关联不可更换；数量调整请使用盘点");
+    ErrorCode FMS_ACCOUNT_NOT_EXISTS = new ErrorCode(1_050_001_054, "会计科目不存在");
+    ErrorCode FMS_VOUCHER_NOT_EXISTS = new ErrorCode(1_050_001_055, "记账凭证不存在");
+    ErrorCode FMS_VOUCHER_ALREADY_POSTED = new ErrorCode(1_050_001_056, "凭证已记账，不能重复操作");
+    ErrorCode FMS_VOUCHER_NOT_BALANCED = new ErrorCode(1_050_001_057, "借贷方金额不相等，凭证不 平");
+    ErrorCode FMS_VOUCHER_POSTED_NO_DELETE = new ErrorCode(1_050_001_058, "已记账凭证不可删除，请先取消记账");
 }

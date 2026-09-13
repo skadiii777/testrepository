@@ -165,11 +165,11 @@
 <!--        </dependency>-->
 
         <!-- AI 模块 -->
-        <dependency>
-            <groupId>com.enterprise</groupId>
-            <artifactId>enterprise-module-ai</artifactId>
-            <version>${revision}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.enterprise</groupId>-->
+<!--            <artifactId>enterprise-module-ai</artifactId>-->
+<!--            <version>${revision}</version>-->
+<!--        </dependency>-->
 
         <!-- IM 相关模块 -->
         <dependency>
