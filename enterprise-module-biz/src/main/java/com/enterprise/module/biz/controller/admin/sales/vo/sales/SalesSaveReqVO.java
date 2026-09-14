@@ -16,12 +16,13 @@ public class SalesSaveReqVO {
     @Schema(description = "主键，更新时必填")
     private Long id;
 
-    @Schema(description = "销售单号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message="销售单号不能为空")
+    @Schema(description = "单号，留空自动生成")
     private String salesCode;
     @Schema(description = "客户")
     
     private String customerName;
+    @Schema(description = "销售归属人，留空默认当前登录人")
+    private String empName;
     @Schema(description = "产品名称", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long productId;
     private Long warehouseId;

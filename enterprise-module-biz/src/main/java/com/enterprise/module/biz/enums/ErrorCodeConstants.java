@@ -100,4 +100,6 @@ public interface ErrorCodeConstants {
     ErrorCode WMS_LOCATION_STOCK_NOT_ENOUGH = new ErrorCode(1_050_001_069, "库位库存不足");
     ErrorCode WMS_LOCATION_WAREHOUSE_MISMATCH = new ErrorCode(1_050_001_070, "移库的两个库位必须属于同一仓库");
     ErrorCode WMS_LOCATION_NO_STOCK = new ErrorCode(1_050_001_071, "该仓库尚未建立此产品库存，请先通过采购入库");
+    ErrorCode TARGET_NOT_EXISTS = new ErrorCode(1_050_001_072, "业绩目标不存在");
+    ErrorCode TARGET_DUPLICATE = new ErrorCode(1_050_001_073, "该员工当月已有目标");
 }

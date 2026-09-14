@@ -42,6 +42,13 @@ public class SalesController {
         return success(salesService.createSales(createReqVO));
     }
 
+    @PostMapping("/create-and-complete")
+    @Operation(summary = "创建并完成销售单（确认+出库扣库存，一步走）")
+    @PreAuthorize("@ss.hasPermission('biz:sales:create')")
+    public CommonResult<Long> createAndCompleteSales(@Valid @RequestBody SalesSaveReqVO createReqVO) {
+        return success(salesService.createAndCompleteSales(createReqVO));
+    }
+
     @PutMapping("/update")
     @Operation(summary = "更新销售单")
     @PreAuthorize("@ss.hasPermission('biz:sales:update')")

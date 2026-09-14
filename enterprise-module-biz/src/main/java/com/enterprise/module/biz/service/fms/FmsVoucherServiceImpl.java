@@ -225,6 +225,67 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    @Override
+    public Map<String, Object> getFinancialReport(LocalDate beginDate, LocalDate endDate) {
+        // 已记账凭证（按日期过滤）的分录
+        List<FmsVoucherDO> vouchers = voucherMapper.selectList(
+                new LambdaQueryWrapperX<FmsVoucherDO>().eq(FmsVoucherDO::getStatus, STATUS_POSTED));
+        List<Long> voucherIds = vouchers.stream()
+                .filter(v -> (beginDate == null || !v.getVoucherDate().isBefore(beginDate))
+                        && (endDate == null || !v.getVoucherDate().isAfter(endDate)))
+                .map(FmsVoucherDO::getId).collect(Collectors.toList());
+        // 科目类型映射
+        Map<Long, FmsAccountDO> accountMap = accountMapper.selectList(
+                        new LambdaQueryWrapperX<FmsAccountDO>()).stream()
+                .collect(Collectors.toMap(FmsAccountDO::getId, a -> a, (a, b) -> a));
+        // 按科目聚合（借方/贷方发生额）
+        Map<Long, BigDecimal> debit = new LinkedHashMap<>();
+        Map<Long, BigDecimal> credit = new LinkedHashMap<>();
+        if (!voucherIds.isEmpty()) {
+            for (FmsVoucherEntryDO e : entryMapper.selectList(
+                    new LambdaQueryWrapperX<FmsVoucherEntryDO>().in(FmsVoucherEntryDO::getVoucherId, voucherIds))) {
+                debit.merge(e.getAccountId(), e.getDebitAmount(), BigDecimal::add);
+                credit.merge(e.getAccountId(), e.getCreditAmount(), BigDecimal::add);
+            }
+        }
+        // 五大类的科目行：balance 按科目余额方向取自然余额
+        Map<Integer, List<Map<String, Object>>> byType = new LinkedHashMap<>();
+        for (FmsAccountDO a : accountMap.values()) {
+            BigDecimal d = debit.getOrDefault(a.getId(), BigDecimal.ZERO);
+            BigDecimal c = credit.getOrDefault(a.getId(), BigDecimal.ZERO);
+            if (d.signum() == 0 && c.signum() == 0) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("accountId", a.getId());
+            row.put("code", a.getCode());
+            row.put("name", a.getName());
+            row.put("debit", d);
+            row.put("credit", c);
+            row.put("balance", a.getDirection() != null && a.getDirection() == 2 ? c.subtract(d) : d.subtract(c));
+            byType.computeIfAbsent(a.getType(), k -> new ArrayList<>()).add(row);
+        }
+        byType.values().forEach(rows -> rows.sort(Comparator.comparing(r -> String.valueOf(r.get("code")))));
+        BigDecimal revenue = sumType(byType.get(5), r -> (BigDecimal) r.get("credit"));
+        BigDecimal expense = sumType(byType.get(5), r -> (BigDecimal) r.get("debit"));
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("assets", byType.getOrDefault(1, List.of()));
+        report.put("liabilities", byType.getOrDefault(2, List.of()));
+        report.put("equity", byType.getOrDefault(3, List.of()));
+        report.put("profitItems", byType.getOrDefault(5, List.of()));
+        report.put("totalRevenue", revenue);
+        report.put("totalExpense", expense);
+        report.put("netProfit", revenue.subtract(expense));
+        // 资产负债表平衡校验：资产 = 负债 + 权益 + 净利润
+        report.put("totalAssets", sumType(byType.get(1), r -> (BigDecimal) r.get("balance")));
+        report.put("totalLiabilities", sumType(byType.get(2), r -> (BigDecimal) r.get("balance")));
+        report.put("totalEquity", sumType(byType.get(3), r -> (BigDecimal) r.get("balance")));
+        return report;
+    }
+
+    private BigDecimal sumType(List<Map<String, Object>> rows, java.util.function.Function<Map<String, Object>, BigDecimal> f) {
+        return rows == null ? BigDecimal.ZERO
+                : rows.stream().map(f).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private FmsVoucherDO buildVoucher(FmsVoucherSaveReqVO reqVO) {
         return buildVoucherForDate(reqVO.getVoucherDate(), reqVO.getSummary(),
                 sumSide(reqVO.getEntries(), true), sumSide(reqVO.getEntries(), false));

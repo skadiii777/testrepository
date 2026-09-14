@@ -42,6 +42,13 @@ public class PurchaseController {
         return success(purchaseService.createPurchase(createReqVO));
     }
 
+    @PostMapping("/create-and-complete")
+    @Operation(summary = "创建并完成采购单（确认+入库加库存，一步走）")
+    @PreAuthorize("@ss.hasPermission('biz:purchase:create')")
+    public CommonResult<Long> createAndCompletePurchase(@Valid @RequestBody PurchaseSaveReqVO createReqVO) {
+        return success(purchaseService.createAndCompletePurchase(createReqVO));
+    }
+
     @PutMapping("/update")
     @Operation(summary = "更新采购单")
     @PreAuthorize("@ss.hasPermission('biz:purchase:update')")

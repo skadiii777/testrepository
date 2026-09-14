@@ -38,6 +38,9 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Resource
     private BpmProcessInstanceApi processInstanceApi;
 
+    @Resource
+    private com.enterprise.module.biz.service.fms.FmsVoucherService fmsVoucherService;
+
     @Override
     public void updateExpense(ExpenseSaveReqVO updateReqVO) {
         validateExpenseExists(updateReqVO.getId());
@@ -91,6 +94,16 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .build();
         if (expenseMapper.auditExpense(update) == 0) {
             throw exception(EXPENSE_ALREADY_AUDITED);
+        }
+        // 审批通过自动生成凭证：借管理费用 / 贷应付职工薪酬（标准科目缺失则跳过）
+        if ("1".equals(status)) {
+            ExpenseDO expense = expenseMapper.selectById(id);
+            if (expense != null && expense.getAmount() != null) {
+                String summary = "报销 " + (expense.getEmpName() != null ? expense.getEmpName() + " " : "")
+                        + (expense.getCategory() != null ? "｜" + expense.getCategory() : "");
+                fmsVoucherService.createSimplePosted("expense", id,
+                        java.time.LocalDate.now(), summary, "6602", "2211", expense.getAmount());
+            }
         }
     }
 

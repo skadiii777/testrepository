@@ -16,6 +16,8 @@ public interface SalesService {
      * 创建销售单（强制草稿状态）
      */
     Long createSales(SalesSaveReqVO createReqVO);
+    /** 创建并确认+完成（一步走，同事务；库存不足整体回滚） */
+    Long createAndCompleteSales(SalesSaveReqVO createReqVO);
 
     /**
      * 状态流转：0草稿→1已确认 / 0,1→3已作废

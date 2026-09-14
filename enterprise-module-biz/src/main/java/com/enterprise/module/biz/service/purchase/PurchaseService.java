@@ -16,6 +16,8 @@ public interface PurchaseService {
      * 创建采购单（强制草稿状态）
      */
     Long createPurchase(PurchaseSaveReqVO createReqVO);
+    /** 创建并确认+完成（一步走，同事务；库存联动失败整体回滚） */
+    Long createAndCompletePurchase(PurchaseSaveReqVO createReqVO);
 
     /**
      * 状态流转：0草稿→1已确认 / 0,1→3已作废

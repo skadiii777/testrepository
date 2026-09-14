@@ -16,6 +16,8 @@ public interface ReturnService {
      * 创建退货单（校验原单已完成、累计退货不超原单数量）
      */
     Long createReturn(ReturnSaveReqVO createReqVO);
+    /** 创建并立即执行退货（库存联动+红冲，同事务） */
+    Long createAndExecuteReturn(ReturnSaveReqVO createReqVO);
 
     /**
      * 更新退货单（仅待退货状态）

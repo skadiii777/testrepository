@@ -14,6 +14,7 @@ import org.springframework.validation.annotation.Validated;
 import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.wms.WmsTaskService;
 import com.enterprise.module.biz.service.stock.StockService;
+import com.enterprise.module.biz.service.support.BizDocumentNo;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -52,10 +53,22 @@ public class PurchaseServiceImpl implements PurchaseService {
         var warehouse = references.warehouse(purchase.getWarehouseId(), purchase.getWarehouse());
         purchase.setProductId(product.getId()); purchase.setProductName(product.getProductName());
         purchase.setWarehouseId(warehouse.getId()); purchase.setWarehouse(warehouse.getName());
+        if (!org.springframework.util.StringUtils.hasText(purchase.getPurchaseCode())) {
+            purchase.setPurchaseCode(BizDocumentNo.nextShort("CG")); // 留空自动生成，唯一键兜底
+        }
         purchase.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
         purchase.setTotalAmount(java.math.BigDecimal.valueOf(purchase.getQuantity()).multiply(purchase.getPrice())); // 总金额服务端强算，不信前端
         purchaseMapper.insert(purchase);
         return purchase.getId();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public Long createAndCompletePurchase(PurchaseSaveReqVO createReqVO) {
+        Long id = createPurchase(createReqVO);
+        transitionPurchase(id, "confirm");
+        completePurchase(id);
+        return id;
     }
 
     @Override

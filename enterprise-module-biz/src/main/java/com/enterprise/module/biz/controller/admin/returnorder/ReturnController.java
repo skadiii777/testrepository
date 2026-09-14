@@ -40,6 +40,13 @@ public class ReturnController {
         return success(returnService.createReturn(createReqVO));
     }
 
+    @PostMapping("/create-and-execute")
+    @Operation(summary = "创建并立即执行退货（库存联动+红冲，一步走）")
+    @PreAuthorize("@ss.hasPermission('biz:return:create')")
+    public CommonResult<Long> createAndExecuteReturn(@Valid @RequestBody ReturnSaveReqVO createReqVO) {
+        return success(returnService.createAndExecuteReturn(createReqVO));
+    }
+
     @PutMapping("/update")
     @Operation(summary = "更新退货单（仅待退货）")
     @PreAuthorize("@ss.hasPermission('biz:return:update')")

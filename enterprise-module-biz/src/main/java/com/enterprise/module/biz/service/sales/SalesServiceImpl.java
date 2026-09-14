@@ -10,12 +10,14 @@ import com.enterprise.module.biz.enums.ErrorCodeConstants;
 import com.enterprise.framework.mybatis.core.query.LambdaQueryWrapperX;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import com.enterprise.module.biz.dal.dataobject.product.ProductDO;
 import com.enterprise.module.biz.dal.mysql.product.ProductMapper;
 import com.enterprise.module.biz.service.fms.FmsVoucherService;
 import com.enterprise.module.biz.service.wms.WmsTaskService;
 import com.enterprise.module.biz.service.stock.StockService;
+import com.enterprise.module.biz.service.support.BizDocumentNo;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,6 +50,8 @@ public class SalesServiceImpl implements SalesService {
     private FmsVoucherService fmsVoucherService;
     @Resource
     private WmsTaskService wmsTaskService;
+    @Resource
+    private com.enterprise.module.system.api.user.AdminUserApi adminUserApi;
 
 
 
@@ -58,10 +62,26 @@ public class SalesServiceImpl implements SalesService {
         var warehouse = references.warehouse(sales.getWarehouseId(), sales.getWarehouse());
         sales.setProductId(product.getId()); sales.setProductName(product.getProductName());
         sales.setWarehouseId(warehouse.getId()); sales.setWarehouse(warehouse.getName());
+        if (!org.springframework.util.StringUtils.hasText(sales.getSalesCode())) {
+            sales.setSalesCode(BizDocumentNo.nextShort("XS")); // 留空自动生成，唯一键兜底
+        }
+        if (!org.springframework.util.StringUtils.hasText(sales.getEmpName())) {
+            var user = adminUserApi.getUser(com.enterprise.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());
+            sales.setEmpName(user != null ? user.getNickname() : null); // 归属人默认登录人
+        }
         sales.setStatus("0"); // 强制草稿，库存联动在"完成"流转时发生
         sales.setTotalAmount(java.math.BigDecimal.valueOf(sales.getQuantity()).multiply(sales.getPrice())); // 总金额服务端强算，不信前端
         salesMapper.insert(sales);
         return sales.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createAndCompleteSales(SalesSaveReqVO createReqVO) {
+        Long id = createSales(createReqVO);
+        transitionSales(id, "confirm");
+        completeSales(id);
+        return id;
     }
 
     @Override

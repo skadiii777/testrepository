@@ -89,4 +89,17 @@ public class FmsVoucherController {
     public CommonResult<List<Map<String, Object>>> getAccountBalances() {
         return success(voucherService.getAccountBalances());
     }
+
+    @GetMapping("/report")
+    @Operation(summary = "财务报表（利润表+资产负债表，按凭证日期过滤）")
+    @Parameter(name = "beginDate", description = "开始日期（可选）")
+    @Parameter(name = "endDate", description = "结束日期（可选）")
+    @PreAuthorize("@ss.hasPermission('biz:fms:voucher:query')")
+    public CommonResult<Map<String, Object>> getFinancialReport(
+            @RequestParam(value = "beginDate", required = false) String beginDate,
+            @RequestParam(value = "endDate", required = false) String endDate) {
+        return success(voucherService.getFinancialReport(
+                beginDate != null ? java.time.LocalDate.parse(beginDate) : null,
+                endDate != null ? java.time.LocalDate.parse(endDate) : null));
+    }
 }

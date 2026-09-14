@@ -35,4 +35,11 @@ public interface FmsVoucherService {
      */
     Long createSimplePosted(String sourceType, Long sourceId, LocalDate voucherDate, String summary,
                             String debitAccountCode, String creditAccountCode, BigDecimal amount);
+
+    /**
+     * 财务报表（利润表 + 资产负债表），按已记账凭证分录×科目类型汇总：
+     * 1资产 2负债 3权益 4成本 5损益（损益再分收入方向/成本费用方向）。
+     * 返回：assets/liabilities/equity/revenue/expense 五组 {code,name,debit,credit,balance} + 汇总。
+     */
+    Map<String, Object> getFinancialReport(LocalDate beginDate, LocalDate endDate);
 }

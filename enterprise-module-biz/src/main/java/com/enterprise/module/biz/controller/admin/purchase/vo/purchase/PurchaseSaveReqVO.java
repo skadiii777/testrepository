@@ -16,8 +16,7 @@ public class PurchaseSaveReqVO {
     @Schema(description = "主键，更新时必填")
     private Long id;
 
-    @Schema(description = "采购单号", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message="采购单号不能为空")
+    @Schema(description = "单号，留空自动生成")
     private String purchaseCode;
     @Schema(description = "供应商")
     

@@ -124,6 +124,14 @@ public class ReturnServiceImpl implements ReturnService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Long createAndExecuteReturn(ReturnSaveReqVO createReqVO) {
+        Long id = createReturn(createReqVO);
+        executeReturn(id);
+        return id;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateReturn(ReturnSaveReqVO updateReqVO) {
         ReturnDO exists = lockReturn(updateReqVO.getId());
         if (!RETURN_STATUS_PENDING.equals(exists.getStatus())) {

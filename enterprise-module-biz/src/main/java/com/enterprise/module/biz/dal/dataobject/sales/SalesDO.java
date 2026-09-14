@@ -31,6 +31,8 @@ public class SalesDO extends TenantBaseDO {
     private String salesCode;
     /**客户*/
     private String customerName;
+    /** 销售归属人（登录人昵称，可修改） */
+    private String empName;
     /**产品名称*/
     private Long productId;
     private Long warehouseId;
