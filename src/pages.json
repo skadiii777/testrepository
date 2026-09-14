@@ -1,0 +1,58 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationStyle": "custom", "navigationBarTitleText": "工作台" }
+    },
+    {
+      "path": "pages/login/index",
+      "style": { "navigationStyle": "custom", "navigationBarTitleText": "登录" }
+    },
+    {
+      "path": "pages/leave/index",
+      "style": { "navigationBarTitleText": "我的请假" }
+    },
+    {
+      "path": "pages/expense/index",
+      "style": { "navigationBarTitleText": "我的报销" }
+    },
+    {
+      "path": "pages/correction/index",
+      "style": { "navigationBarTitleText": "我的补卡" }
+    },
+    {
+      "path": "pages/report/index",
+      "style": { "navigationBarTitleText": "业务汇报" }
+    },
+    {
+      "path": "pages/approval/index",
+      "style": { "navigationBarTitleText": "审批中心" }
+    },
+    {
+      "path": "pages/message/index",
+      "style": { "navigationBarTitleText": "消息" }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": { "navigationBarTitleText": "我的" }
+    }
+  ],
+  "tabBar": {
+    "color": "#9aa0a6",
+    "selectedColor": "#1ab394",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "工作台" },
+      { "pagePath": "pages/approval/index", "text": "审批" },
+      { "pagePath": "pages/message/index", "text": "消息" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "企业管理",
+    "navigationBarBackgroundColor": "#1ab394",
+    "backgroundColor": "#f5f6f8"
+  }
+}
