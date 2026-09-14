@@ -20,6 +20,11 @@ public interface PurchaseService {
     Long createAndCompletePurchase(PurchaseSaveReqVO createReqVO);
 
     /**
+     * 在途库存：已确认未完成的采购单按 产品+仓库 汇总数量
+     */
+    java.util.List<java.util.Map<String, Object>> getInTransit(Long warehouseId);
+
+    /**
      * 状态流转：0草稿→1已确认 / 0,1→3已作废
      */
     void transitionPurchase(Long id, String action);

@@ -41,6 +41,8 @@ public class CustomerDO extends TenantBaseDO {
     private String source;
     /**地址*/
     private String address;
+    /** 信用额度（0=不限额） */
+    private java.math.BigDecimal creditLimit;
     /**状态*/
     private String status;
 

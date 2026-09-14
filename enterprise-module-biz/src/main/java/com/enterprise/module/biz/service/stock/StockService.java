@@ -33,6 +33,16 @@ public interface StockService {
     StockDO getStock(Long id);
 
     /**
+     * 产品库存快照（全仓合计数量, 当前成本单价）——移动加权入库前读
+     */
+    java.util.Map.Entry<Long, java.math.BigDecimal> findProductSnapshot(Long productId);
+
+    /**
+     * 更新产品成本单价（移动加权入库后回写）
+     */
+    void updateProductCost(Long productId, java.math.BigDecimal cost);
+
+    /**
      * 获得库存分页
      */
     PageResult<StockDO> getStockPage(StockPageReqVO pageReqVO);

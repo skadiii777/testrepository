@@ -33,9 +33,11 @@ public class CustomerSaveReqVO {
     
     private String source;
     @Schema(description = "地址")
-    
+
     private String address;
+    @Schema(description = "信用额度（0=不限额）")
+    private java.math.BigDecimal creditLimit;
     @Schema(description = "状态")
-    
+
     private String status;
 }

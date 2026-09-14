@@ -102,4 +102,5 @@ public interface ErrorCodeConstants {
     ErrorCode WMS_LOCATION_NO_STOCK = new ErrorCode(1_050_001_071, "该仓库尚未建立此产品库存，请先通过采购入库");
     ErrorCode TARGET_NOT_EXISTS = new ErrorCode(1_050_001_072, "业绩目标不存在");
     ErrorCode TARGET_DUPLICATE = new ErrorCode(1_050_001_073, "该员工当月已有目标");
+    ErrorCode CREDIT_LIMIT_EXCEEDED = new ErrorCode(1_050_001_074, "客户信用额度不足：应收 {}，额度 {}，剩余可用 {}，请先收款或调整额度");
 }

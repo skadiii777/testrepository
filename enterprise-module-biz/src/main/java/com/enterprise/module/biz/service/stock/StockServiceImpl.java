@@ -55,6 +55,25 @@ public class StockServiceImpl implements StockService {
             .balanceAfter(BigDecimal.valueOf(after)).sourceType(type).sourceCode(code).build());
         return true;
     }
+    @Override
+    public java.util.Map.Entry<Long, java.math.BigDecimal> findProductSnapshot(Long productId) {
+        Long totalQty = stockMapper.selectList(new LambdaQueryWrapperX<StockDO>()
+                        .eq(StockDO::getProductId, productId)).stream()
+                .mapToLong(s -> s.getQuantity() == null ? 0L : s.getQuantity()).sum();
+        var product = productMapper.selectById(productId);
+        return java.util.Map.entry(totalQty, product != null ? product.getCost() : null);
+    }
+
+    @Override
+    public void updateProductCost(Long productId, java.math.BigDecimal cost) {
+        var product = productMapper.selectById(productId);
+        if (product == null) return;
+        var update = new com.enterprise.module.biz.dal.dataobject.product.ProductDO();
+        update.setId(productId);
+        update.setCost(cost);
+        productMapper.updateById(update);
+    }
+
     @Override public Long findQuantity(Long productId, Long warehouseId) {
         var stock = stockMapper.selectByProductAndWarehouse(productId,warehouseId);
         return stock == null ? 0L : stock.getQuantity();

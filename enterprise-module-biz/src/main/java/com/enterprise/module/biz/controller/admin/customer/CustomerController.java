@@ -34,6 +34,8 @@ public class CustomerController {
 
     @Resource
     private CustomerService customerService;
+    @Resource
+    private com.enterprise.module.biz.service.credit.CreditService creditService;
 
     @PostMapping("/create")
     @Operation(summary = "创建客户")
@@ -73,6 +75,20 @@ public class CustomerController {
     public CommonResult<PageResult<CustomerRespVO>> getCustomerPage(@Valid CustomerPageReqVO pageReqVO) {
         PageResult<CustomerDO> pageResult = customerService.getCustomerPage(pageReqVO);
         return success(BeanUtils.toBean(pageResult, CustomerRespVO.class));
+    }
+
+    @GetMapping("/credit-view")
+    @Operation(summary = "客户信用视图（额度/应收/剩余可用，应收=已完成销售-净收款）")
+    @Parameter(name = "customerName", description = "客户名称", required = true)
+    @PreAuthorize("@ss.hasPermission('biz:customer:query')")
+    public CommonResult<java.util.Map<String, Object>> getCreditView(
+            @RequestParam("customerName") String customerName) {
+        var view = creditService.view(customerName);
+        var row = new java.util.LinkedHashMap<String, Object>();
+        row.put("limit", view.limit());
+        row.put("receivable", view.receivable());
+        row.put("remaining", view.remaining());
+        return success(row);
     }
 
     @GetMapping("/export-excel")

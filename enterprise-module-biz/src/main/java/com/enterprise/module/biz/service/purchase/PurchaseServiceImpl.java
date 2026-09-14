@@ -107,8 +107,23 @@ public class PurchaseServiceImpl implements PurchaseService {
         if (purchaseMapper.updateStatusByCas(id, "1", "2") == 0) {
             throw exception(ORDER_STATUS_TRANSITION_INVALID);
         }
+        // 移动加权成本：入库前快照 全仓库存合计 与 产品当前成本
+        var productBefore = stockService.findProductSnapshot(purchase.getProductId());
         stockService.changeStock(purchase.getProductId(), purchase.getWarehouseId(), purchase.getQuantity(),
                 "purchase", purchase.getPurchaseCode());
+        // 新成本 = (原库存总值 + 本次入库金额) / 新库存合计；原库存为 0 时直接取本次单价
+        if (productBefore != null && purchase.getPrice() != null && purchase.getQuantity() != null) {
+            BigDecimal oldQty = BigDecimal.valueOf(productBefore.getKey());
+            BigDecimal oldCost = productBefore.getValue();
+            BigDecimal inQty = BigDecimal.valueOf(purchase.getQuantity());
+            BigDecimal newCost = oldQty.signum() > 0 && oldCost != null
+                    && oldCost.signum() > 0
+                    ? oldQty.multiply(oldCost)
+                        .add(purchase.getPrice().multiply(inQty))
+                        .divide(oldQty.add(inQty), 4, java.math.RoundingMode.HALF_UP)
+                    : purchase.getPrice();
+            stockService.updateProductCost(purchase.getProductId(), newCost);
+        }
         // 自动凭证：采购入库 借库存商品 / 贷应付账款（赊购口径，付款时冲应付）
         fmsVoucherService.createSimplePosted("purchase", id, LocalDate.now(),
                 "采购入库 " + purchase.getPurchaseCode() + (purchase.getSupplierName() != null ? "｜" + purchase.getSupplierName() : ""),
@@ -122,6 +137,28 @@ public class PurchaseServiceImpl implements PurchaseService {
         update.setStatus("2");
         purchaseMapper.updateById(update);
     }
+    @Override
+    public java.util.List<java.util.Map<String, Object>> getInTransit(Long warehouseId) {
+        var list = purchaseMapper.selectList(new com.enterprise.framework.mybatis.core.query.LambdaQueryWrapperX<PurchaseDO>()
+                .eq(PurchaseDO::getStatus, "1")
+                .eqIfPresent(PurchaseDO::getWarehouseId, warehouseId));
+        record Key(Long productId, String productName, Long warehouseId, String warehouse) {}
+        var merged = new java.util.LinkedHashMap<Key, Long>();
+        for (var p : list) {
+            merged.merge(new Key(p.getProductId(), p.getProductName(), p.getWarehouseId(), p.getWarehouse()),
+                    p.getQuantity() == null ? 0L : p.getQuantity(), Long::sum);
+        }
+        return merged.entrySet().stream().map(e -> {
+            var row = new java.util.LinkedHashMap<String, Object>();
+            row.put("productId", e.getKey().productId());
+            row.put("productName", e.getKey().productName());
+            row.put("warehouseId", e.getKey().warehouseId());
+            row.put("warehouse", e.getKey().warehouse());
+            row.put("inTransitQuantity", e.getValue());
+            return row;
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updatePurchase(PurchaseSaveReqVO updateReqVO) {

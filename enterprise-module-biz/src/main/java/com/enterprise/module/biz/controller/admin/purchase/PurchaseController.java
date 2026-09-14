@@ -49,6 +49,15 @@ public class PurchaseController {
         return success(purchaseService.createAndCompletePurchase(createReqVO));
     }
 
+    @GetMapping("/in-transit")
+    @Operation(summary = "在途库存（已确认未完成的采购单按产品+仓库汇总）")
+    @Parameter(name = "warehouseId", description = "仓库编号（可选）")
+    @PreAuthorize("@ss.hasPermission('biz:purchase:query')")
+    public CommonResult<java.util.List<java.util.Map<String, Object>>> getInTransit(
+            @RequestParam(value = "warehouseId", required = false) Long warehouseId) {
+        return success(purchaseService.getInTransit(warehouseId));
+    }
+
     @PutMapping("/update")
     @Operation(summary = "更新采购单")
     @PreAuthorize("@ss.hasPermission('biz:purchase:update')")

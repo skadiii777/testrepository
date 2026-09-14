@@ -51,6 +51,8 @@ public class SalesServiceImpl implements SalesService {
     @Resource
     private WmsTaskService wmsTaskService;
     @Resource
+    private com.enterprise.module.biz.service.credit.CreditService creditService;
+    @Resource
     private com.enterprise.module.system.api.user.AdminUserApi adminUserApi;
 
 
@@ -93,6 +95,8 @@ public class SalesServiceImpl implements SalesService {
             if (!"0".equals(from)) {
                 throw exception(ORDER_STATUS_TRANSITION_INVALID);
             }
+            // 信用额度校验：确认即占用应收
+            creditService.checkCredit(sales.getCustomerName(), sales.getTotalAmount());
             to = "1";
         } else if ("void".equals(action)) {
             if ("2".equals(from) || "3".equals(from)) {
