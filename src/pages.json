@@ -1,12 +1,20 @@
 {
   "pages": [
     {
+      "path": "pages/chat/index",
+      "style": { "navigationBarTitleText": "聊天" }
+    },
+    {
       "path": "pages/index/index",
       "style": { "navigationStyle": "custom", "navigationBarTitleText": "工作台" }
     },
     {
       "path": "pages/login/index",
       "style": { "navigationStyle": "custom", "navigationBarTitleText": "登录" }
+    },
+    {
+      "path": "pages/chatroom/index",
+      "style": { "navigationBarTitleText": "对话" }
     },
     {
       "path": "pages/leave/index",
@@ -42,7 +50,10 @@
     "selectedColor": "#1ab394",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
+    "height": "120rpx",
+    "fontSize": "28rpx",
     "list": [
+      { "pagePath": "pages/chat/index", "text": "聊天" },
       { "pagePath": "pages/index/index", "text": "工作台" },
       { "pagePath": "pages/approval/index", "text": "审批" },
       { "pagePath": "pages/message/index", "text": "消息" },

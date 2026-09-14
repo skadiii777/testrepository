@@ -48,13 +48,15 @@ const doLogin = async () => {
     })
     const info = await getPermissionInfo()
     setUser({
+      userId: info.user?.id || data.userId,
       nickname: info.user?.nickname || form.username,
       avatar: info.user?.avatar || '',
       roles: info.roles || [],
       permissions: info.permissions || []
     })
     refreshDict()
-    uni.reLaunch({ url: '/pages/index/index' })
+    // 登录跳转后的一级页 = 聊天（tabBar 首页）
+    uni.reLaunch({ url: '/pages/chat/index' })
   } catch (e) {
     const msg = e?.message || String(e)
     uni.showModal({ title: '登录失败', content: msg.includes('账号密码') ? '账号或密码错误' : msg, showCancel: false })

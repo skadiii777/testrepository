@@ -38,10 +38,36 @@ page {
 .form-input {
   background: #f7f8fa;
   border-radius: 12rpx;
-  padding: 20rpx 24rpx;
   font-size: 28rpx;
   width: 100%;
   box-sizing: border-box;
+  height: 88rpx;
+  line-height: 88rpx;
+}
+/* uni-input 内层真实 input 需显式撑高，否则高度塌陷为 0 无法点击输入 */
+.form-input .uni-input-wrapper {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+}
+.form-input .uni-input-input {
+  height: 88rpx;
+  font-size: 28rpx;
+}
+.form-input .uni-input-placeholder {
+  line-height: 88rpx;
+}
+/* 多行文本域：uni-textarea 内层同样要撑满 */
+.form-input.area {
+  height: 180rpx;
+  line-height: 1.6;
+  padding: 20rpx 24rpx;
+}
+.form-input.area .uni-textarea-wrapper,
+.form-input.area .uni-textarea-textarea {
+  height: 100%;
+  line-height: 1.6;
 }
 .picker-box {
   background: #f7f8fa;

@@ -74,3 +74,28 @@ export const getMyMessagePage = (params: any) => get<any>('/system/notify-messag
 export const readMessages = (ids: number[]) =>
   put('/system/notify-message/update-read?' + ids.map((i) => `ids=${i}`).join('&'))
 export const readAllMessages = () => put('/system/notify-message/update-all-read')
+
+// ===== IM 聊天（私聊）=====
+export interface ImFriend {
+  friendUserId: number
+  nickname?: string
+  avatar?: string
+  displayName?: string
+  pinned?: boolean
+}
+export const getFriendList = () => get<ImFriend[]>('/im/friend/list', undefined, { silent: true })
+export const getPrivateHistory = (receiverId: number, maxId?: number, limit = 30) =>
+  get<any[]>('/im/message/private/list', { receiverId, maxId, limit }, { silent: true })
+// 消息去重 ID：时间戳 + 自增序号，同端唯一即可（非加密场景）
+let msgSeq = 0
+const nextClientMessageId = () => 'm' + Date.now() + '-' + ++msgSeq
+
+export const sendPrivateText = (receiverId: number, text: string) =>
+  post<any>('/im/message/private/send', {
+    clientMessageId: nextClientMessageId(),
+    receiverId,
+    type: 101, // ImContentTypeEnum.TEXT
+    content: JSON.stringify({ content: text })
+  })
+export const pullPrivateMessage = (minId: number, size = 100) =>
+  get<any[]>('/im/message/private/pull', { minId, size }, { silent: true })
