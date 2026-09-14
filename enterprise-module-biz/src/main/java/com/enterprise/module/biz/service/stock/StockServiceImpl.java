@@ -61,7 +61,8 @@ public class StockServiceImpl implements StockService {
                         .eq(StockDO::getProductId, productId)).stream()
                 .mapToLong(s -> s.getQuantity() == null ? 0L : s.getQuantity()).sum();
         var product = productMapper.selectById(productId);
-        return java.util.Map.entry(totalQty, product != null ? product.getCost() : null);
+        // cost 可能为 NULL（历史产品未设成本），用 SimpleEntry 允许 null 值
+        return new java.util.AbstractMap.SimpleEntry<>(totalQty, product != null ? product.getCost() : null);
     }
 
     @Override
