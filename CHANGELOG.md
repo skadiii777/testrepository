@@ -1,5 +1,19 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-15 · 阶段二小项：lombok 版本对齐 + Actuator 暴露面固化
+
+- **lombok 版本不一致**（P1-11）：根 `pom.xml` 的 `lombok.version` 为 `1.18.42`（用于
+  maven-compiler-plugin 的 annotationProcessorPaths），而 `enterprise-dependencies/pom.xml`
+  的 BOM 为 `1.18.46`（实际进入 classpath 的依赖版本）——**注解处理器与运行时依赖不同版本**。
+  已统一为 `1.18.46`，并在两处加注释说明必须保持一致。
+  验证：全项目 `mvn -DskipTests compile` → BUILD SUCCESS（3:13）。
+- **Actuator 暴露面**（P1-10）：复核后**更正原评审判断**——`include: '*'` 只存在于
+  `application-dev.yaml` 与 `application-local.yaml`，`application-pro.yaml` 无 `management` 段，
+  生产走 Spring Boot 默认（仅 `health`），**并非生产信息泄露**。
+  本次仍做加固：在 `application-pro.yaml` 显式写入
+  `management.endpoints.web.exposure.include: health`，不再依赖默认值，
+  避免日后有人把 dev 配置上移到底层 yaml 时静默扩大暴露面。
+
 ## 2026-09-15 · CI 就绪（阶段二起步，待启用）
 
 - 新增 `docs/ci/github-actions-ci.yml`：`push`/`pull_request`（main）与手动触发。

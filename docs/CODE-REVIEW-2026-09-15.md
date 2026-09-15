@@ -240,10 +240,14 @@ RuoYi 4.8.3 老系统 → yudao 架构迁移 → 业务规则补齐 → 上线�
 - 影响：代码在盘但从不编译，会随时间腐坏；文档承诺的能力实际不可用
 - 修复：明确决策——要么纳入构建（补依赖 + 配置 + 菜单），要么移出到独立实验目录
 
-**P1-10 Actuator 端点全暴露**
-- 证据：`application-dev.yaml:130` `include: '*'`
-- 影响：生产环境信息泄露面（健康、指标、环境变量）
-- 修复：pro profile 收敛为 `health,info,metrics` 白名单
+**P1-10 Actuator 端点暴露** ⚠️ 复核后**降级**：生产未受影响
+- 证据：`application-dev.yaml:130` 与 `application-local.yaml:154` 为 `include: '*'`
+- **更正原判断**：初次评审称"生产环境信息泄露"，属过度推断。复核确认——
+  `application-pro.yaml` **没有** `management` 配置段，生产走 Spring Boot 默认
+  （仅暴露 `health`）。`include: '*'` 只存在于 dev/local 两个本地 profile。
+- 残留建议：`application-pro.yaml` 未显式声明 Actuator 端点，属"依赖默认值"。
+  建议显式写上 `management.endpoints.web.exposure.include: health` 以固化意图，
+  避免日后有人把 dev 的配置上移到底层 yaml 时静默扩大暴露面。
 
 **P1-11 lombok 版本不一致**
 - 证据：根 `pom.xml:55` = `1.18.42`（注解处理器）vs `enterprise-dependencies/pom.xml:61` = `1.18.46`（依赖）
