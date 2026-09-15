@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 编译与打包（JDK 17）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 编译全部模块
+        run: mvn -B -DskipTests compile
+
+      - name: 打包（跳过测试）
+        run: mvn -B -DskipTests package
+
+  secret-scan:
+    name: 明文密钥扫描
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 检查受版本控制的配置文件中是否残留明文密钥
+        run: |
+          set -euo pipefail
+          hits=$(grep -rInE '^[[:space:]]*(password|secret|api-key|key|customer|request-key|response-key|client-secret)[[:space:]]*:[[:space:]]*[^$#[:space:]]' \
+            --include='*.yaml' --include='*.yml' --include='*.properties' \
+            enterprise-server/src/main/resources application-private.example.properties || true)
+          if [ -n "$hits" ]; then
+            echo "::error::检测到疑似明文密钥，请改用环境变量引用（参见 application-private.example.properties）"
+            echo "$hits"
+            exit 1
+          fi
+          echo "未发现明文密钥"
+
+# 说明（暂未纳入 CI 的检查，避免误报为"已覆盖"）：
+#   - 单元/集成测试：tests/ 与 BizConcurrencyTest 需要真实 MySQL（BIZ_DB_* / BIZ_TEST_JDBC_URL），
+#     待补齐可用的 CI 数据库服务后再加入。
+#   - 静态扫描（SpotBugs / Spotless / JaCoCo）：存量问题未清理，直接阻断会产生大量噪音，
+#     建议先以告警模式接入，跑两周确定基线后再决定是否阻断。
+#   - 前端仓库（enterprise-pro-ui）为独立仓库，其 CI 需单独添加；当前 ts:check 尚有 49 条
+#     存量错误（17 条为引用已删除 mall 模块的死代码），清理后再纳入。

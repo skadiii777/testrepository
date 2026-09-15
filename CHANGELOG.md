@@ -1,5 +1,23 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-15 · CI 就绪（阶段二起步，待启用）
+
+- 新增 `docs/ci/github-actions-ci.yml`：`push`/`pull_request`（main）与手动触发。
+  - **build**：JDK 17 + Maven 缓存 → `mvn -B -DskipTests compile` → `mvn -B -DskipTests package`
+  - **secret-scan**：扫描受版本控制的配置文件是否残留明文密钥（正则覆盖
+    password/secret/api-key/key/customer/request-key/response-key/client-secret）
+- 两个 job 的命令与规则均已在本地实测通过：全项目 `compile`（3:55）与 `package`（3:45）各
+  BUILD SUCCESS；扫描规则在**当前仓库 0 命中**（印证阶段一的密钥参数化完整），并用含明文密码的
+  样例文件做反向验证确认规则有效。
+- ⚠️ **尚未启用**：工作流须位于 `.github/workflows/` 才会生效，但本机 PAT 权限为
+  `X-OAuth-Scopes: repo`，**缺少 `workflow` scope**，GitHub 拒绝推送该路径下的文件
+  （`refusing to allow a Personal Access Token to create or update workflow ... without workflow scope`）。
+  故暂置于 `docs/ci/` 先纳入版本控制与备份，启用步骤见 `docs/ci/README.md`
+  （方式 A：给 PAT 补 `workflow` scope；方式 B：改用 SSH，推荐）。
+- 明确未纳入 CI 的项（避免误判为"已覆盖"）：单元/集成测试需真实 MySQL，待接入 CI 数据库服务；
+  SpotBugs/Spotless/JaCoCo 存量问题未清理，宜先告警模式跑基线；前端为独立仓库需单独配置
+  （当前 `ts:check` 尚有 49 条存量错误，其中 17 条为引用已删除 mall 模块的死代码）。
+
 ## 2026-09-15 · 阶段一加固上生产（8.155.128.225）
 
 - 复核 f3ef53a/545cf55 两 commit 后按 DEPLOY-ALIYUN.md 新流程部署：`/data/app/enterprise.env`（600）注入 ENTERPRISE_PRO_* 五个变量，systemd 增 EnvironmentFile，`/data/app/config/application-pro.yaml` 换为无明文密码版，`application-private.properties` 增补 kd-niao business-id 与 kd100 key/customer（取 git 历史原值）
