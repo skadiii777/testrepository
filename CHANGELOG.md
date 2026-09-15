@@ -1,5 +1,13 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-15 · 阶段一加固上生产（8.155.128.225）
+
+- 复核 f3ef53a/545cf55 两 commit 后按 DEPLOY-ALIYUN.md 新流程部署：`/data/app/enterprise.env`（600）注入 ENTERPRISE_PRO_* 五个变量，systemd 增 EnvironmentFile，`/data/app/config/application-pro.yaml` 换为无明文密码版，`application-private.properties` 增补 kd-niao business-id 与 kd100 key/customer（取 git 历史原值）
+- 执行 `sql/mysql/fms_voucher_source_unique.sql`：重复来源检查为空，uk_no/uk_source 落库确认
+- 备份：/data/backup/jar/{enterprise-server,application-pro-*,application-private-*}-<TS>；替换 jar 重启 ~90s 起
+- 冒烟：采购 325 confirm→complete，凭证 `JZ2609151321544X`（16 位新格式，借贷 0.01 平，source=purchase/325，status=1）；补卡直批 id=304 通过；登录/租户接口正常
+- 遗留：前端 pro-ui 仍未推远程（用户明确暂缓）；kd100 凭证真实性确认与轮换；captcha.enable=false
+
 ## 2026-09-15 · 阶段一加固（评审 P0/P1 修复）
 
 > 依据 `docs/CODE-REVIEW-2026-09-15.md` 的阶段一清单执行，目标为「消除全部 P0」。
