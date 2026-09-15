@@ -17,6 +17,12 @@
 - **补卡 BPM 回调静默不一致**（`AttendanceCorrectionServiceImpl.updateCorrectionStatusFromBpm`）：
   原实现无 `@Transactional` 且把考勤回写异常 `log.error` 吞掉，与本地直批路径 `auditCorrection`（有事务、失败回滚）语义不一致，
   会出现「补卡已通过但考勤未写」。现补事务注解并让异常向上抛出，两条入口语义对齐。
+  > ⚠️ **取舍说明**：BPM 状态事件由 `BpmProcessInstanceEventPublisher` 在审批事务内**同步**发布
+  > （`BpmProcessInstanceServiceImpl` 中有 `TransactionSynchronizationManager.registerSynchronization` 佐证），
+  > 故本方法的 `@Transactional` 会加入该审批事务。若考勤回写持续失败，审批动作将一并回滚并向审批人报错，
+  > 即"宁可审批失败重试，也不留静默不一致"。`correctTime` 有 `@NotBlank` 校验，正常路径不会出现
+  > 确定性失败，实际失败源为数据库等基础设施问题——此时回滚重试正是期望行为。
+  > 若后续希望审批不被阻塞，应改为"回写失败落重试表 + 定时补偿"，而非退回静默吞异常。
 - **补卡 BPM 状态映射越界**：原 `status - 1` 无校验，`已取消(4)` 会写出状态 `3`、`未开始(-1)` 会写出 `-2`（均越界）。
   改为仅接受终态 `APPROVE(2) -> 1`、`REJECT(3) -> 2`，其余状态跳过回写并记日志。
 - **补卡监听器传参错误**（`CorrectionStatusListener`）：第三个参数应为流程实例编号，

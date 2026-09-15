@@ -132,12 +132,17 @@ RuoYi 4.8.3 老系统 → yudao 架构迁移 → 业务规则补齐 → 上线�
 
 ### P1 · 重要
 
-**P1-1 补卡 BPM 回调无事务且吞异常，与本地审批路径语义不一致**
+**P1-1 补卡 BPM 回调无事务且吞异常，与本地审批路径语义不一致** ✅ 已于 2026-09-15 修复
 - 证据：`AttendanceCorrectionServiceImpl.java:72` `updateCorrectionStatusFromBpm` **无 `@Transactional`**；`:79` 状态已 CAS 落库后，`:87-93` 回写失败仅 `log.error` 吞掉
 - 对照：`:127` 的 `auditCorrection` 有 `@Transactional(rollbackFor = Exception.class)`，回写失败会整体回滚
 - 影响：BPM 路径下出现"补卡已通过但考勤未写"的静默数据不一致
 - 附带问题：`:76` `status - 1` 做状态映射但**无范围校验**，非法值会写入越界状态
-- 修复：加事务 + 失败落异常表重试；映射加白名单校验
+- 修复：加 `@Transactional` 并让异常抛出；映射改终态白名单（`APPROVE(2)->1`、`REJECT(3)->2`），其余跳过
+- **执行时补充的重要发现**：BPM 状态事件在审批事务内**同步**发布（`BpmProcessInstanceServiceImpl` 用 `TransactionSynchronizationManager.registerSynchronization`），
+  故该方法的事务会加入审批事务——考勤回写持续失败会导致审批一并回滚。这是刻意取舍：**宁可审批失败重试，也不留静默不一致**。
+  本报告原先建议的"失败落异常表重试"是更优解，但需新建表与补偿任务，归入阶段二。
+- **执行时新发现的缺陷（原评审遗漏）**：`CorrectionStatusListener:37` 第三个参数应为流程实例编号，原代码传 `event.getBusinessKey()`，
+  会把 `process_instance_id` 写成补卡单 id。已改为 `event.getId()`。
 
 **P1-2 信用额度校验可被并发绕过**
 - 证据：`SalesServiceImpl.java:90-113` `transitionSales` 无事务无锁；`CreditService.java:58-68` 仅读快照
