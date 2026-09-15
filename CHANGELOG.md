@@ -1,5 +1,47 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-15 · 阶段一加固（评审 P0/P1 修复）
+
+> 依据 `docs/CODE-REVIEW-2026-09-15.md` 的阶段一清单执行，目标为「消除全部 P0」。
+> 已通过 `mvn compile -pl enterprise-module-biz -am` 全 19 模块 BUILD SUCCESS；SQL 在本地库实测通过。
+
+### 修复
+
+- **FMS 凭证号重号**（`FmsVoucherServiceImpl`）：旧实现 `"JZ" + yyyyMMdd + System.currentTimeMillis() % 10000`，
+  取值空间仅 1 万且每 10 秒循环一次，同日撞号后由 `uk_no` 唯一键拦下并向前端抛错。
+  改用与销售/采购单号同一生成器 `BizDocumentNo.nextShort("JZ")`（16 位，`varchar(32)` 内），撞号概率可忽略。
+- **FMS 自动凭证幂等缺数据库兜底**：`createAutoPosted` 原为「先查后插」，并发下同一来源单据可生成两张凭证。
+  新增 `uk_source (tenant_id, source_type, source_id)` 唯一键，并把并发冲突转为返回已存在凭证（捕获 `DuplicateKeyException`），
+  不再向前端抛 500。手工凭证 `source_type/source_id` 为 NULL，MySQL 唯一索引允许多个 NULL，不受影响；
+  自动凭证创建即已记账、`deleteVoucher` 拒绝删除已记账凭证，故无软删除占位问题。
+- **补卡 BPM 回调静默不一致**（`AttendanceCorrectionServiceImpl.updateCorrectionStatusFromBpm`）：
+  原实现无 `@Transactional` 且把考勤回写异常 `log.error` 吞掉，与本地直批路径 `auditCorrection`（有事务、失败回滚）语义不一致，
+  会出现「补卡已通过但考勤未写」。现补事务注解并让异常向上抛出，两条入口语义对齐。
+- **补卡 BPM 状态映射越界**：原 `status - 1` 无校验，`已取消(4)` 会写出状态 `3`、`未开始(-1)` 会写出 `-2`（均越界）。
+  改为仅接受终态 `APPROVE(2) -> 1`、`REJECT(3) -> 2`，其余状态跳过回写并记日志。
+- **补卡监听器传参错误**（`CorrectionStatusListener`）：第三个参数应为流程实例编号，
+  原实现误传 `event.getBusinessKey()`，会把 `process_instance_id` 写成补卡单 id。改为 `event.getId()`。
+- **构建产物入库**：`tmp_biz.jar` 已 `git rm --cached`；`.gitignore` 增加 `*.jar`（wrapper 除外）与 `.enterprise-pro-work/`。
+- **Dockerfile 失效**：原用 `eclipse-temurin:21-jre` 且 `COPY ./target/yudao-server.jar`，
+  与项目 JDK 17 基线和 `finalName=enterprise-server` 均不符，构建必失败。已修正为 17-jre + `enterprise-server.jar`。
+- **配置明文密钥**：`application.yaml` 中 `kd100.key/customer`、`kd-niao.business-id`、
+  `api-encrypt.request-key/response-key` 改为环境变量引用；`deploy-backup/application-pro.yaml` 的
+  数据库/Redis 密码与微信 secret 改为 `ENTERPRISE_PRO_*` 环境变量注入。
+
+### 部署影响（必须同步执行）
+
+1. **服务器环境变量**：`application-pro.yaml` 不再含明文密码，部署前必须在 systemd 注入
+   `ENTERPRISE_PRO_SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD`、
+   `..._SLAVE_PASSWORD`、`ENTERPRISE_PRO_SPRING_DATA_REDIS_PASSWORD`（缺失将启动失败）。
+   详见 `deploy-backup/application-pro.yaml` 文件头与 `application-private.example.properties` 尾部注释。
+2. **数据库结构**：执行 `sql/mysql/fms_voucher_source_unique.sql`（幂等）。
+   脚本第一步会输出重复来源凭证检查结果，**正常应为空**；若有结果须先人工核对删除多余凭证再建索引。
+3. **凭证号格式变更**：新凭证号为 `JZ + yyMMddHHmmss + 2 位随机字母数字`（如 `JZ260915143052AB`），
+   与历史 `JZ + yyyyMMdd + 4 位` 格式并存，不影响历史数据。
+4. **待办（未在本次执行）**：`kd100.key/customer` 自首个提交起即存在于 git 历史并已推送 GitHub，
+   需确认是否为真实凭证，若是则轮换；`deploy-backup/application-pro.yaml` 的 `captcha.enable` 仍为 `false`，
+   上线前应改 `true`。
+
 ## 2026-09-13（续3）· WMS 仓储管理初步搭建（W1：库位 + 库位库存 + 流水）
 
 - **定位**：库位库存是仓库库存的**分配视图**——上架/下架/移库只动库位库存表，不动主库存（biz_stock），零风险接入现有进销存；未分配量 = 仓库库存 − 库位分配合计。

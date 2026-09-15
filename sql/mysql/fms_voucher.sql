@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS biz_fms_voucher (
   `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
   `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_no` (`voucher_no`, `tenant_id`)
+  UNIQUE KEY `uk_no` (`voucher_no`, `tenant_id`),
+  UNIQUE KEY `uk_source` (`tenant_id`, `source_type`, `source_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 COMMENT='记账凭证';
 
 -- 3. 凭证分录（明细行，借方合计 = 贷方合计）

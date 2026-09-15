@@ -52,13 +52,21 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 3. systemd 服务（`/etc/systemd/system/enterprise.service`）：
    ```ini
    [Service]
-   Environment=MYSQL_PASS=xxx REDIS_PASS=xxx
+   # 密钥不再写在配置文件中，改由环境变量注入；文件权限 600，内容为 KEY=VALUE 逐行
+   EnvironmentFile=/data/app/enterprise.env
    ExecStart=/usr/bin/java -Dfile.encoding=UTF-8 -jar /data/app/enterprise-server.jar --spring.profiles.active=pro
    Restart=always
    [Install]
    WantedBy=multi-user.target
    ```
-   `systemctl daemon-reload && systemctl enable --now enterprise`
+   `/data/app/enterprise.env` 必填项（缺失会导致启动失败，这是刻意的快速失败）：
+   ```
+   ENTERPRISE_PRO_SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD=xxx
+   ENTERPRISE_PRO_SPRING_DATASOURCE_DYNAMIC_DATASOURCE_SLAVE_PASSWORD=xxx
+   ENTERPRISE_PRO_SPRING_DATA_REDIS_PASSWORD=xxx
+   ```
+   可选：`ENTERPRISE_PRO_WX_MP_SECRET`、`ENTERPRISE_PRO_WX_MINIAPP_SECRET`（未启用社交登录可留空）。
+   `chmod 600 /data/app/enterprise.env && systemctl daemon-reload && systemctl enable --now enterprise`
 4. 冒烟：`curl http://localhost:48080/admin-api/system/auth/login ...`
 
 ## 阶段 4 · 前端上线
@@ -110,6 +118,8 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 ## 上线前检查清单
 
 - [ ] 验证码开启、数据库/Redis 密码非明文或环境变量
+- [ ] `/data/app/enterprise.env` 已创建且权限 600（`application-pro.yaml` 已无明文密码，缺变量会启动失败）
+- [ ] 已执行 `sql/mysql/fms_voucher_source_unique.sql`（幂等；先确认其输出的重复来源检查为空）
 - [ ] 安全组未开放 3306/6379/48080
 - [ ] swagger/knife4j 生产关闭（`springdoc.api-docs.enabled=false`）
 - [ ] 日志轮转（logback 已配）+ 云监控告警（CPU/内存/磁盘）

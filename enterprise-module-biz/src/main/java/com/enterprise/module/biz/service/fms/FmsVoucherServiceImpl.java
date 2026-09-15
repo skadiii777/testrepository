@@ -11,16 +11,16 @@ import com.enterprise.module.biz.dal.mysql.fms.FmsAccountMapper;
 import com.enterprise.module.biz.dal.mysql.fms.FmsVoucherEntryMapper;
 import com.enterprise.module.biz.dal.mysql.fms.FmsVoucherMapper;
 import com.enterprise.module.biz.enums.ErrorCodeConstants;
+import com.enterprise.module.biz.service.support.BizDocumentNo;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -133,7 +133,19 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
         voucher.setStatus(STATUS_POSTED);
         voucher.setSourceType(sourceType);
         voucher.setSourceId(sourceId);
-        voucherMapper.insert(voucher);
+        try {
+            voucherMapper.insert(voucher);
+        } catch (DuplicateKeyException e) {
+            // 并发下两个请求同时通过上面的先查后插：由 uk_source 唯一键兜底，
+            // 后者改为返回已存在的凭证，避免同一来源重复入账或向前端抛 500
+            FmsVoucherDO concurrent = voucherMapper.selectBySource(sourceType, sourceId);
+            if (concurrent != null) {
+                log.info("[createAutoPosted][来源({}/{}) 并发重复生成凭证，返回已存在凭证 {}]",
+                        sourceType, sourceId, concurrent.getId());
+                return concurrent.getId();
+            }
+            throw e;
+        }
         saveEntries(voucher.getId(), entries);
         return voucher.getId();
     }
@@ -294,8 +306,10 @@ public class FmsVoucherServiceImpl implements FmsVoucherService {
     private FmsVoucherDO buildVoucherForDate(LocalDate voucherDate, String summary,
                                              BigDecimal debitTotal, BigDecimal creditTotal) {
         FmsVoucherDO voucher = new FmsVoucherDO();
-        voucher.setVoucherNo("JZ" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-                + System.currentTimeMillis() % 10000);
+        // 凭证号：前缀 + yyMMddHHmmss + 2 位随机字母数字（与销售/采购单号同一生成器）。
+        // 旧实现用 System.currentTimeMillis() % 10000，取值空间仅 1 万且每 10 秒循环一次，
+        // 同日撞号后由 uk_no 唯一键拦下并抛错；改用随机单号后撞号概率可忽略，唯一键仍作最终兜底。
+        voucher.setVoucherNo(BizDocumentNo.nextShort("JZ"));
         voucher.setVoucherDate(voucherDate);
         voucher.setSummary(summary);
         voucher.setDebitTotal(debitTotal);

@@ -11,6 +11,7 @@ import com.enterprise.module.biz.dal.mysql.attendance.AttendanceMapper;
 import com.enterprise.module.biz.dal.mysql.correction.AttendanceCorrectionMapper;
 import com.enterprise.module.bpm.api.task.BpmProcessInstanceApi;
 import com.enterprise.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import com.enterprise.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,13 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     /** 下班时间，早于此打卡记早退 */
     private static final String WORK_END = "18:00";
 
+    /** 补卡审批状态：0 待审批 */
+    private static final String STATUS_PENDING = "0";
+    /** 补卡审批状态：1 已通过 */
+    private static final String STATUS_APPROVED = "1";
+    /** 补卡审批状态：2 已驳回 */
+    private static final String STATUS_REJECTED = "2";
+
     @Resource
     private AttendanceCorrectionMapper correctionMapper;
     @Resource
@@ -51,7 +59,7 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     @Override
     public Long createCorrection(AttendanceCorrectionSaveReqVO createReqVO) {
         AttendanceCorrectionDO correction = BeanUtils.toBean(createReqVO, AttendanceCorrectionDO.class);
-        correction.setStatus("0"); // 强制初始状态，防止客户端篡改
+        correction.setStatus(STATUS_PENDING); // 强制初始状态，防止客户端篡改
         correctionMapper.insert(correction);
         // 尝试发起 BPM 流程；未部署时降级为本地审批模式
         try {
@@ -69,29 +77,46 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateCorrectionStatusFromBpm(Long id, Integer status, String processInstanceId) {
-        // BPM 状态映射：2=通过 -> 表 1；3=驳回 -> 表 2
+        // 仅流程终态回写补卡单：2=审批通过 -> 1；3=审批不通过 -> 2。
+        // 审批中(1)/已取消(4)/未开始(-1) 不动补卡单，避免写入越界状态（旧实现用 status-1 会写出 3、-2）
+        String targetStatus = bpmStatusToCorrectionStatus(status);
+        if (targetStatus == null) {
+            log.info("[updateCorrectionStatusFromBpm][补卡({}) BPM 状态({}) 非审批终态，跳过回写]", id, status);
+            return;
+        }
         AttendanceCorrectionDO update = AttendanceCorrectionDO.builder()
                 .id(id)
-                .status(status == null ? null : String.valueOf(status - 1))
+                .status(targetStatus)
                 .processInstanceId(processInstanceId)
                 .build();
         int rows = correctionMapper.auditCorrection(update);
-        log.info("[updateCorrectionStatusFromBpm][补卡({}) BPM 状态回写 status={} rows={}]", id, status, rows);
+        log.info("[updateCorrectionStatusFromBpm][补卡({}) BPM 状态回写 status={} -> {} rows={}]",
+                id, status, targetStatus, rows);
         if (rows == 0) {
+            // CAS 未命中：该补卡已审批过（BPM 重复投递），幂等返回
             return;
         }
-        // 审批通过时回写考勤
-        if (Integer.valueOf(2).equals(status)) {
+        // 审批通过时回写考勤：与本地直批路径 auditCorrection 保持同一事务语义，
+        // 回写失败必须整体回滚并抛出，不能出现「补卡已通过但考勤未写」的静默不一致
+        if (STATUS_APPROVED.equals(targetStatus)) {
             AttendanceCorrectionDO correction = correctionMapper.selectById(id);
-            try {
-                applyCorrection(correction);
-                log.info("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写完成 workDate={}]",
-                        id, correction == null ? null : correction.getWorkDate());
-            } catch (Exception e) {
-                log.error("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写失败]", id, e);
-            }
+            applyCorrection(correction);
+            log.info("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写完成 workDate={}]",
+                    id, correction == null ? null : correction.getWorkDate());
         }
+    }
+
+    /** BPM 流程终态 -> 补卡审批状态；非终态返回 null（表示不改动补卡单） */
+    private String bpmStatusToCorrectionStatus(Integer bpmStatus) {
+        if (BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(bpmStatus)) {
+            return STATUS_APPROVED;
+        }
+        if (BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(bpmStatus)) {
+            return STATUS_REJECTED;
+        }
+        return null;
     }
 
     @Override
@@ -126,7 +151,7 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int auditCorrection(Long id, String status, String auditRemark, Long auditorUserId) {
-        if (!"1".equals(status) && !"2".equals(status)) {
+        if (!STATUS_APPROVED.equals(status) && !STATUS_REJECTED.equals(status)) {
             throw exception(CORRECTION_AUDIT_STATUS_INVALID);
         }
         AttendanceCorrectionDO update = AttendanceCorrectionDO.builder()
@@ -139,7 +164,7 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
             throw exception(CORRECTION_ALREADY_AUDITED);
         }
         // 审批通过：自动回写考勤记录
-        if ("1".equals(status)) {
+        if (STATUS_APPROVED.equals(status)) {
             applyCorrection(correctionMapper.selectById(id));
         }
         return rows;

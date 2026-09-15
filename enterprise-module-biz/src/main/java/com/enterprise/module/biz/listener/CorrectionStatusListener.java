@@ -33,7 +33,9 @@ public class CorrectionStatusListener extends BpmProcessInstanceStatusEventListe
     protected void onEvent(BpmProcessInstanceStatusEvent event) {
         log.info("[onEvent][补卡流程状态回调 key={} status={} businessKey={}]",
                 event.getProcessDefinitionKey(), event.getStatus(), event.getBusinessKey());
+        // 第三个参数是流程实例编号，取 event.getId()（processInstanceId）；
+        // 旧实现误传 businessKey，会把补卡单的 process_instance_id 写成补卡单 id
         correctionService.updateCorrectionStatusFromBpm(Long.parseLong(event.getBusinessKey()),
-                event.getStatus(), event.getBusinessKey());
+                event.getStatus(), event.getId());
     }
 }
