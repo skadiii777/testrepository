@@ -1,0 +1,18 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+/dist*
+pnpm-debug
+auto-*.d.ts
+.idea
+.history
+output/
+.playwright-cli/
+
+# 插件运行时快照与本地日志
+.mimosa/
+dev.log
+
+# 受损 .git 备份（仅本地保留，不入库）
+.git.damaged-*/
