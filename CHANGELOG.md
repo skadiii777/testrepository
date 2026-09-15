@@ -6,7 +6,16 @@
 - 执行 `sql/mysql/fms_voucher_source_unique.sql`：重复来源检查为空，uk_no/uk_source 落库确认
 - 备份：/data/backup/jar/{enterprise-server,application-pro-*,application-private-*}-<TS>；替换 jar 重启 ~90s 起
 - 冒烟：采购 325 confirm→complete，凭证 `JZ2609151321544X`（16 位新格式，借贷 0.01 平，source=purchase/325，status=1）；补卡直批 id=304 通过；登录/租户接口正常
-- 遗留：前端 pro-ui 仍未推远程（用户明确暂缓）；kd100 凭证真实性确认与轮换；captcha.enable=false
+- 遗留：kd100 凭证真实性确认与轮换；captcha.enable=false
+- **补记（09-15 下午）：前端 pro-ui 已推送远程，遗留项清除。** 推送失败的根因与网络无关——
+  前端仓库是浅克隆（`.git/shallow` 边界 `aab14fb` 为合并提交，其父提交 `0f73d302`/`d1490e28`
+  不在本地），推送时 git 发瘦包并假定远端已有父提交，而远端 `testrepository` 装的是后端历史，
+  故服务端报 `fatal: did not receive expected object d1490e28...` → `remote unpack failed: index-pack failed`。
+  排查过程中一次 `git rebase` 超时被强杀、中断了 git 自动 gc，导致该仓库 `.git/refs`、`.git/logs`
+  与松散对象被清（原历史不可恢复，工作区源码无损）。已按当前工作区重建仓库并推送成功：
+  `github/pro-ui = 7fa85ab`（1195 个文件 / 19.68MB），生产构建验证 `✓ built in 24.68s`。
+  教训：在可能超时的前提下不得运行会触发 gc 的写操作（rebase/commit/gc），须加 `-c gc.auto=0`
+  或置于后台给足时间。
 
 ## 2026-09-15 · 阶段一加固（评审 P0/P1 修复）
 
