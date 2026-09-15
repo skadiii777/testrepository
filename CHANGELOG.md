@@ -1,5 +1,12 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-15 · 上节修复部署实况（8.155.128.225）
+
+- 新 jar（lombok 1.18.46 构建）+ 外置 `application-pro.yaml`（Actuator 固化段）已上生产；备份 jar/yaml 后重启 ~90s 起
+- 验证：`/actuator` 发现列表仅 health，`/actuator/env|beans` 未暴露——注意其 HTTP 状态码为 200，系 yudao 全局兜底（code:404 JSON 壳），**勿以状态码判断暴露面**；`/actuator/health` = UP
+- 业务回归：采购 0.01 完成 → 凭证 `JZ2609151500253Z`（16 位新格式，借贷平）；登录/采购分页正常
+- 另核实：前端 pro-ui 已推远程（7fa85ab 本地=远程，历史重建为单 commit，P0-1 消除；GitHub 直连需 `-c http.version=HTTP/1.1`）；CI 工作流暂置 docs/ci/（PAT 缺 workflow scope，待补后移入 .github/workflows）
+
 ## 2026-09-15 · 阶段二小项：lombok 版本对齐 + Actuator 暴露面固化
 
 - **lombok 版本不一致**（P1-11）：根 `pom.xml` 的 `lombok.version` 为 `1.18.42`（用于
