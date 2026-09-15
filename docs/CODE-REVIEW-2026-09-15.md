@@ -23,6 +23,62 @@
 
 ---
 
+## 阶段二进展（2026-09-15 当日）
+
+### 已完成
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| P1-3a CI 工作流 | ⚠️ 就绪待启用 | `docs/ci/github-actions-ci.yml`：build（编译+打包）+ secret-scan（明文密钥扫描）。两 job 命令与规则均本地实测通过 |
+| P1-3b 密钥回归防护 | ✅ 规则就位 | 扫描规则当前 0 命中；用含明文样例反向验证确认有效 |
+
+**CI 未启用的原因（非技术债，是凭据权限）**：本机 PAT 权限为 `X-OAuth-Scopes: repo`，
+缺少 `workflow` scope，GitHub 拒绝推送 `.github/workflows/` 下的文件。
+启用步骤见 `docs/ci/README.md`（补 scope 或改用 SSH，一条 `git mv` 即可）。
+
+### 新增数据：前端 `ts:check` 现状
+
+`npm run ts:check` → **49 条错误**（评审时为 50），分布：
+
+| 错误码 | 数量 | 主要来源 |
+|---|---|---|
+| TS2307 | 17 | 全部为 `@/api/mall/*` 找不到模块 |
+| TS6133 | 15 | 声明但未使用 |
+| TS2339 | 9 | 属性不存在 |
+| TS2304 | 4 | 找不到名称 |
+| TS2367 | 2 | 比较疑似笔误 |
+| TS2322 | 2 | 类型不可赋值 |
+
+**17 条 TS2307 的根因已定位**：`src/components/DiyEditor/`（93 个文件 / 412K）是上游遗留的
+移动端页面搭建器，其 `components/mobile/*` 引用了已被删除的 mall 模块。核查结论——**该目录为死代码**：
+
+- `src/router` 中无任何 `diy` 路由
+- 全 `src` 无 `<DiyEditor>` 模板使用，仅在**自动生成**的 `src/types/auto-components.d.ts` 中出现
+- `build/vite/index.ts:63` 的自动导入 globs **已显式排除** `DiyEditor/components/mobile/**`
+  （即作者已知其不参与构建）
+
+处置二选一（属产品决策，未代为执行）：
+- **删除** `src/components/DiyEditor/`：消掉 17 条错误并减少 412K 代码，与既有的上游模块瘦身方向一致
+- **从 tsconfig 排除**：`exclude` 增加 `"src/components/DiyEditor"`，保留代码但不再类型检查
+
+### 执行事故记录（诚实留档）
+
+排查前端推送失败时，一次 `git rebase` 因超过工具超时被强杀，中断了 git 自动 gc，
+导致 `enterprise-pro-ui` 的 `.git/refs`、`.git/logs` 与松散对象被清，**该仓库原 19 个本地提交
+的历史不可恢复**（工作区源码无损，已重建并推送，生产构建验证通过）。
+
+**根因链**（供后续参考）：
+1. 前端仓库是浅克隆，`.git/shallow` 边界 `aab14fb` 是合并提交，其父提交不在本地
+2. 推送到不含该上游历史的远端时 git 发瘦包、假定远端已有父提交 → 服务端
+   `fatal: did not receive expected object ...` → `remote unpack failed: index-pack failed`
+3. 这与网络无关（该次 13.39 MiB 以 120 KiB/s 完整传完）；`CONNECT tunnel failed 502` 是
+   另一个独立的代理抽风问题（curl 抽样失败率约 50%）
+
+**新增纪律**：在可能超时的前提下，不得运行会触发 gc 的写操作（`rebase`/`commit`/`gc`/`repack`），
+必须加 `-c gc.auto=0` 或置于后台并给足时间。已在前端仓库设置 `gc.auto=0`。
+
+---
+
 ## 一、项目概况
 
 | 维度 | 实况 |
