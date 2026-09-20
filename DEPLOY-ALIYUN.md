@@ -4,7 +4,7 @@
 
 ## 阶段 0 · 服务器与账号准备
 
-1. **ECS**：2核4G 起步（开发测试够用），系统选 Alibaba Cloud Linux 3 或 Ubuntu 22.04
+1. **ECS**：2核8G 起步（现生产即 2C8G；开发测试最低 2核4G），系统选 Alibaba Cloud Linux 3 或 Ubuntu 22.04
 2. **安全组**（ECS 控制台）只放行：
    - 22（SSH，建议限自己的 IP）
    - 80 / 443（前端 + HTTPS）
@@ -28,7 +28,8 @@ mkdir -p /data/enterprise/files
 
 ```bash
 # 本地导出（结构 + 种子数据；去掉 smoke_test 残留的业务测试数据）
-mysqldump -uroot -p123456 enterprise-pro --default-character-set=utf8mb4 > enterprise-pro.sql
+# 密码不落盘：-p 交互式输入，或 --defaults-extra-file=<凭据文件>
+mysqldump -uroot -p --default-character-set=utf8mb4 enterprise-pro > enterprise-pro.sql
 # 云上导入（RDS 用 DMS 控制台或 mysql 客户端）
 mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 ```
@@ -42,7 +43,7 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 
 1. 新建 `application-pro.yaml`（参考 application-local.yaml）：
    - 数据源 → RDS 地址；密码用**环境变量注入**（不要明文进 git）
-   - Redis → 云 Redis；`captcha-enabled: true`（上线开启验证码）
+   - Redis → 云 Redis；`enterprise.captcha.enable: true`（上线开启验证码；注意是嵌套键，`captcha-enable` 是错误写法）
    - 文件 basePath → `/data/enterprise/files`
 2. 本地打包上传：
    ```bash
@@ -73,20 +74,19 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
 
 1. 本地构建：
    ```bash
-   # .env.production：VITE_BASE_URL='https://你的域名'（或 http://ECS IP）
-   npm run build        # 产物 dist/
-   scp -r dist/* root@<ECS>:/data/enterprise/front/
+   # .env.prod（无 .env.production 文件）：VITE_BASE_URL='' 即同源，由 nginx 代理 /admin-api
+   npm run build:prod   # 产物 dist-prod/（package.json 无裸 build 脚本）
+   scp -r dist-prod/* root@<ECS>:/data/enterprise/front/
    ```
-2. nginx 配置（`/etc/nginx/conf.d/enterprise.conf`）：
-   ```nginx
-   server {
-     listen 80;
-     root /data/enterprise/front;
-     location / { try_files $uri $uri/ /index.html; }        # SPA 路由
-     location /admin-api/ { proxy_pass http://127.0.0.1:48080; }
-     client_max_body_size 20m;                                # 发票图片上传
-   }
+2. nginx 配置：直接使用仓库内 `deploy-backup/enterprise.conf` 整文件（**不要用同目录的
+   `nginx-enterprise.conf`——那是 09-07 前的过期版本，缺 `/infra/ws` WebSocket 升级头与
+   index.html no-cache，照抄会复发 IM 推送失效与发版后白屏**）：
+   ```bash
+   scp deploy-backup/enterprise.conf root@<ECS>:/etc/nginx/conf.d/enterprise.conf
+   ssh root@<ECS> 'nginx -t && systemctl reload nginx'
    ```
+   该文件已含：SPA try_files、`/admin-api/` 代理 48080、`/infra/ws` 升级头、
+   index.html no-cache + /assets/ immutable、`/m/` 移动工作台子路径、gzip、client_max_body_size 20m。
 3. 浏览器访问 `http://ECS_IP` → 登录 → 逐页验证
 
 ## 阶段 5 · 边测试边开发的迭代闭环
@@ -106,9 +106,9 @@ mysql -h <rds地址> -u<用户> -p enterprise-pro < enterprise-pro.sql
    （前端 `npm run build:prod` → dist-prod.tar.gz → scp → 解压 /data/enterprise/front；
    后端 `mvn package` → scp jar → `systemctl restart enterprise`，启动约 2.5 分钟）。
    **严禁直接在服务器上改代码/页面**，服务器只是运行环境。
-2. **服务器配置备份**：`deploy-backup/` 保存了 application-pro.yaml / nginx-enterprise.conf /
+2. **服务器配置备份**：`deploy-backup/` 保存了 application-pro.yaml / **enterprise.conf（当前生效版，含 /infra/ws 与 no-cache）** /
    enterprise.service / db.sh 的副本，服务器配置改动后要回拷到这里更新
-   （application-pro.yaml 含密码，已在 .gitignore，不进 git）。
+   （application-pro.yaml 含密码，已在 .gitignore，不进 git；`nginx-enterprise.conf` 为历史遗留过期文件，勿再引用）。
 3. **数据库每日备份**：服务器 cron `30 2 * * * /data/backup/db.sh`，gzip 备份到
    /data/backup/，保留 14 天。恢复命令：
    `gunzip < enterprise-pro-YYYY-MM-DD.sql.gz | mysql -uroot -p enterprise-pro`

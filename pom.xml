@@ -40,7 +40,7 @@
 
     <name>${project.artifactId}</name>
     <description>企业管理平台项目基础脚手架</description>
-    <url>https://github.com/YunaiV/ruoyi-vue-pro</url>
+    <url>https://github.com/skadiii777/testrepository</url>
 
     <properties>
         <revision>2026.08-SNAPSHOT</revision>

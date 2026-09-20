@@ -184,20 +184,42 @@ public class WmsStockServiceImpl implements WmsStockService {
         }
     }
 
+    /**
+     * 操作人昵称缓存（userId -> 昵称）。
+     * operator_name 是流水展示字段，昵称基本不变；缓存后事务持锁期间最多发一次 RPC，
+     * 避免每次上架/下架/移库都在 @Transactional 内调 adminUserApi.getUser 放大锁等待。
+     */
+    private final java.util.concurrent.ConcurrentHashMap<Long, String> operatorCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private String resolveOperatorName() {
+        Long uid = getLoginUserId();
+        if (uid == null) {
+            return null;
+        }
+        String cached = operatorCache.get(uid);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            AdminUserRespDTO user = adminUserApi.getUser(uid);
+            if (user != null && user.getNickname() != null) {
+                operatorCache.put(uid, user.getNickname());
+                return user.getNickname();
+            }
+        } catch (Exception e) {
+            log.warn("[resolveOperatorName] 获取操作人昵称失败", e);
+        }
+        return null;
+    }
+
     private void insertMove(String moveType, Long warehouseId, Long productId, String productName,
                             Long quantity, Long fromId, String fromCode, Long toId, String toCode, String remark) {
-        String operator = null;
-        try {
-            AdminUserRespDTO user = adminUserApi.getUser(getLoginUserId());
-            operator = user != null ? user.getNickname() : null;
-        } catch (Exception e) {
-            log.warn("[insertMove] 获取操作人昵称失败", e);
-        }
         locationMoveMapper.insert(WmsLocationMoveDO.builder()
                 .moveType(moveType).warehouseId(warehouseId)
                 .productId(productId).productName(productName).quantity(quantity)
                 .fromLocationId(fromId).fromLocationCode(fromCode)
                 .toLocationId(toId).toLocationCode(toCode)
-                .operatorName(operator).remark(remark).build());
+                .operatorName(resolveOperatorName()).remark(remark).build());
     }
 }

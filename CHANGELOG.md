@@ -494,6 +494,6 @@
 
 ### 已知事项
 
-- 登录验证码默认关闭（自动化测试需要），生产开启 `enterprise.captcha-enable`
+- 登录验证码默认关闭（自动化测试需要），生产开启 `enterprise.captcha.enable`（嵌套键，实测配置即此写法；`captcha-enable` 为错误写法，设置的是不存在的属性）
 - `application-druid.yaml` 数据源为明文密码，生产建议环境变量注入
 - 生成器 `tools/gen_biz_yudao.py` / `tools/gen_front.py` 重跑会覆盖生成目录，手工改动需同步模板

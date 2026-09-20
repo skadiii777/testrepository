@@ -78,3 +78,4 @@ generated/
 
 # 本地工作区：迁移预检报告、验证日志、QA 库导出
 .enterprise-pro-work/
+docs/AI-MEMORY-ARCHIVE.md

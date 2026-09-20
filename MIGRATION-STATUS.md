@@ -1,5 +1,8 @@
 # enterprise-pro 迁移进度清单（2026-09-04 收工状态）
 
+> ⚠️ **历史归档（2026-09-04 ~ 09-06）**。当前状态请见 `CHANGELOG.md`，环境信息请见 `AGENTS.md`。
+> 本文的环境速查表已过期（JDK 路径、Redis 启动方式与现状不符），请勿依据本文搭建环境。
+
 > 目标：把 enterprise-ms（RuoYi 4.8.3 / Thymeleaf）的全部业务功能迁移到 yudao 架构
 > （Spring Boot 3.5 + MyBatis Plus + Spring Security + Vue3），全新项目，功能保留。
 
