@@ -1,5 +1,15 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-20 · 复核报告（docs/REVIEW-2026-09-20.md）方案落地
+
+- **S1 移动端远程备份（最高优先）**：app 仓库补 package.json 元信息 + README/AGENTS，推送 testrepository `app` 分支成功（`master -> app`，本地 master 跟踪 github/app）；三项目单点风险全部消除
+- **S3 规矩文件入库**：BE/UI 双仓 `.github/ AGENTS.md CLAUDE.md` + `docs/REVIEW-2026-09-20.md` 入库（入库前扫敏脱敏 3 处：admin123/-p123456/TVDBZ 地图 key）；`docs/AI-MEMORY-ARCHIVE.md` 按"工具私有记忆只是缓存"入 .gitignore；UI 按约定暂不推送远程
+- **S4 文档修复**：README 模块表补齐 FMS/WMS/IM/CRM 扩展 + 登录凭据场景化；DEPLOY-ALIYUN 修 2C8G/mysqldump 不落盘/build:prod+.env.prod/nginx 段改指 `enterprise.conf` 并显式警告过期的 `nginx-enterprise.conf`（修正 4）；MIGRATION-STATUS 加归档声明；UI README 去上游化重写（版本更正 Vue 3.5.34/Vite 8.1.4/EP 2.13.7/TS 6.0.3）
+- **S5B 分支约定**：AGENTS.md 新增 testrepository 分支表（main/pro-ui/app，master 历史遗留勿动）；AGENTS.md 自身脱敏
+- **代码修复**：P1-6 `insertMove` 操作人昵称改 ConcurrentHashMap 缓存（事务持锁期最多一次 RPC，operator_name 历史留名语义不变）；P1-7 `migrate.py` 校验和绑定迁移函数源码（inspect.getsource，无关改动不再误报）+ 版本号收敛常量 + 历史记录不匹配降级提示；S6 tencent-lbs-key 参数化（原值落私有 properties，真实性/轮换待用户判断）；P2-6 pom url 改自有仓库；N8 captcha 键名统一 `enterprise.captcha.enable`；N7 .env.prod 删两行残留
+- **部署冒烟**：新 jar 上线（备份后重启 ~90s），采购 0.01→凭证 `JZ260920160414NZ`；WMS 建库位→putaway→remove→清理全链路通过，move 表 id=5/6 operator_name 正确写入（缓存路径两次操作均生效）
+- **冒烟脚本坑**（记入 AGENTS）：putaway/remove 字段不同（locationId vs fromLocationId）；库位 create 必填 type；历史冒烟库位已软删（deleted=1），`WHERE deleted=0` 查不到属正确行为
+
 ## 2026-09-15 · 上节修复部署实况（8.155.128.225）
 
 - 新 jar（lombok 1.18.46 构建）+ 外置 `application-pro.yaml`（Actuator 固化段）已上生产；备份 jar/yaml 后重启 ~90s 起
