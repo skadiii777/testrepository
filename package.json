@@ -1,6 +1,7 @@
 {
-  "name": "uni-preset-vue",
-  "version": "0.0.0",
+  "name": "enterprise-pro-app",
+  "version": "1.0.0",
+  "description": "企业管理系统移动工作台（uni-app Vue3，H5 部署于生产 /m/ 子路径）",
   "scripts": {
     "dev:custom": "uni -p",
     "dev:h5": "uni",
