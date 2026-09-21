@@ -1,0 +1,80 @@
+/**
+ * 设计变量（Design Token）—— 移动工作台唯一色彩与度量来源
+ *
+ * 使用方式：src/uni.scss 顶部 @import 本文件，uni-app 会自动注入到所有页面，
+ * 页面内直接写 $c-primary / $sp-3 / $r-md 即可，无需单独 import。
+ *
+ * 改主色只需改这一处；tabBar 图标同源色见 tools/gen_tabbar_icons.py 的 ON 常量。
+ */
+
+/* ---------- 主色 ---------- */
+$c-primary: #0e7a63; // 白底对比度 4.9:1（WCAG AA）
+$c-primary-deep: #0c6b57; // 按下态
+$c-primary-soft: #e1f5ee; // 图标容器底、选中底
+$c-primary-weak: #f2fbf8; // 列表选中行
+
+/* ---------- 语义色 ---------- */
+$c-danger: #e24b4a; // 驳回、未读、负向
+$c-warning: #ba7517; // 待审批、预警
+$c-success: #1d9e75; // 已通过、在线
+$c-info: #185fa5;
+
+/* ---------- 中性色 ---------- */
+$c-text-1: #111827; // 标题、主文本
+$c-text-2: #6b7280; // 次要文本
+$c-text-3: #9ca3af; // 占位、时间戳
+$c-text-4: #c4c9d0; // 失效
+$c-border: #e5e7eb; // 描边
+$c-divider: #f1f3f5; // 分隔线
+$c-page: #f5f6f8; // 页面底
+$c-card: #ffffff; // 卡片底
+$c-gray-soft: #f1f3f5; // 搜索框、输入框底
+
+/* ---------- 应用图标色板（底 / 描边 成对使用） ---------- */
+$c-app-teal-bg: #e1f5ee;
+$c-app-teal-fg: #0f6e56;
+$c-app-blue-bg: #e6f1fb;
+$c-app-blue-fg: #185fa5;
+$c-app-amber-bg: #faeeda;
+$c-app-amber-fg: #854f0b;
+$c-app-purple-bg: #eeedfe;
+$c-app-purple-fg: #534ab7;
+$c-app-red-bg: #fcebeb;
+$c-app-red-fg: #a32d2d;
+$c-app-gray-bg: #f1efe8;
+$c-app-gray-fg: #5f5e5a;
+
+/* ---------- 圆角 ---------- */
+$r-xs: 8rpx;
+$r-sm: 12rpx;
+$r-md: 16rpx;
+$r-lg: 24rpx;
+$r-xl: 32rpx;
+$r-icon: 26rpx; // 应用图标方块
+$r-full: 999rpx; // 胶囊 / 圆形
+
+/* ---------- 间距（8 栅格） ---------- */
+$sp-1: 8rpx;
+$sp-2: 16rpx;
+$sp-3: 24rpx;
+$sp-4: 32rpx;
+$sp-5: 40rpx;
+$sp-6: 48rpx;
+
+/* ---------- 字号 ---------- */
+$fs-cap: 22rpx; // 时间戳、角标
+$fs-sm: 24rpx; // 辅助说明
+$fs-body: 26rpx; // 正文
+$fs-md: 28rpx; // 列表主文本
+$fs-lg: 32rpx; // 小标题
+$fs-title: 36rpx; // 页面标题
+$fs-xl: 40rpx; // 数值强调
+
+/* ---------- 阴影（极轻，扁平风） ---------- */
+$shadow-card: 0 2rpx 8rpx rgba(17, 24, 39, 0.04);
+$shadow-float: 0 6rpx 24rpx rgba(17, 24, 39, 0.08);
+
+/* ---------- 固定尺寸 ---------- */
+$h-nav: 88rpx; // 自定义导航栏高度
+$h-cell: 108rpx; // 列表单元格
+$h-tabbar: 110rpx;

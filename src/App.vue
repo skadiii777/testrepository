@@ -4,40 +4,105 @@ export default {
 }
 </script>
 
-<style>
+<style lang="scss">
+/*
+ * 全局基础样式。设计变量见 src/styles/tokens.scss（由 uni.scss 全局注入）。
+ *
+ * 约束：本文件中的 .card / .form-* / .btn-* / .tag / .empty / .row-* 类
+ * 被现有页面（leave、expense、correction、report、approval、chatroom）依赖，
+ * 只允许升级外观，不允许删除或改名。
+ */
+
 page {
   background: #f5f6f8;
   font-size: 28rpx;
-  color: #303133;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 通用卡片 */
+/* ---------- 页面容器 ---------- */
+.page {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* ---------- 卡片 ---------- */
 .card {
-  background: #fff;
-  border-radius: 16rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
   margin: 24rpx;
   padding: 28rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2rpx 8rpx rgba(17, 24, 39, 0.04);
 }
 .card-title {
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 500;
+  color: #111827;
   margin-bottom: 20rpx;
 }
 
-/* 表单 */
+/* ---------- 分组列表（卡片内多行） ---------- */
+.group {
+  background: #ffffff;
+  border-radius: 24rpx;
+  margin: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(17, 24, 39, 0.04);
+}
+.group-title {
+  font-size: 24rpx;
+  color: #9ca3af;
+  padding: 32rpx 28rpx 12rpx;
+}
+
+/* ---------- 行内字段（label 左 / 值右） ---------- */
+.field {
+  display: flex;
+  align-items: flex-start;
+  padding: 26rpx 28rpx;
+  position: relative;
+}
+.field::after {
+  content: '';
+  position: absolute;
+  left: 28rpx;
+  right: 0;
+  bottom: 0;
+  height: 1rpx;
+  background: #f1f3f5;
+}
+.field:last-child::after {
+  display: none;
+}
+.field-label {
+  width: 176rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  color: #6b7280;
+}
+.field-value {
+  flex: 1;
+  font-size: 28rpx;
+  color: #111827;
+  min-width: 0;
+}
+.field-value.placeholder {
+  color: #c4c9d0;
+}
+
+/* ---------- 表单（沿用原结构，仅升级外观） ---------- */
 .form-item {
   margin-bottom: 28rpx;
 }
 .form-label {
   font-size: 26rpx;
-  color: #606266;
+  color: #6b7280;
   margin-bottom: 12rpx;
   display: block;
 }
 .form-input {
-  background: #f7f8fa;
-  border-radius: 12rpx;
+  background: #f1f3f5;
+  border-radius: 16rpx;
   font-size: 28rpx;
   width: 100%;
   box-sizing: border-box;
@@ -70,46 +135,83 @@ page {
   line-height: 1.6;
 }
 .picker-box {
-  background: #f7f8fa;
-  border-radius: 12rpx;
-  padding: 20rpx 24rpx;
-  color: #909399;
+  background: #f1f3f5;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  height: 88rpx;
+  color: #c4c9d0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 28rpx;
 }
 .picker-val {
-  color: #303133;
+  color: #111827;
 }
 
-/* 按钮 */
+/* ---------- 按钮 ---------- */
 .btn-primary {
-  background: #1ab394;
-  color: #fff;
-  border-radius: 12rpx;
+  background: #0e7a63;
+  color: #ffffff;
+  border-radius: 16rpx;
   font-size: 30rpx;
-  line-height: 88rpx;
+  font-weight: 500;
+  line-height: 92rpx;
+  height: 92rpx;
   text-align: center;
+  border: none;
+}
+.btn-primary::after {
+  border: none;
+}
+.btn-primary:active {
+  background: #0c6b57;
+}
+.btn-primary[disabled] {
+  background: #9ed4c6;
+  color: #ffffff;
+}
+.btn-mini {
+  border: 1rpx solid #0e7a63;
+  color: #0e7a63;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  padding: 6rpx 26rpx;
+  display: inline-block;
+  line-height: 1.5;
+}
+.btn-mini-gray {
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+.btn-mini:active {
+  background: #f2fbf8;
 }
 
-/* 状态标签 */
+/* ---------- 状态标签 ---------- */
 .tag {
   font-size: 22rpx;
-  padding: 4rpx 16rpx;
+  padding: 5rpx 16rpx;
   border-radius: 8rpx;
-  color: #fff;
+  color: #ffffff;
   flex-shrink: 0;
+  line-height: 1.4;
 }
 
-/* 空态 */
-.empty {
+/* ---------- 徽标 ---------- */
+.badge {
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  border-radius: 16rpx;
+  background: #e24b4a;
+  color: #ffffff;
+  font-size: 20rpx;
+  line-height: 32rpx;
   text-align: center;
-  color: #c0c4cc;
-  padding: 120rpx 0;
-  font-size: 26rpx;
 }
 
-/* 列表卡片头尾 */
+/* ---------- 列表行（旧页面沿用） ---------- */
 .row-head {
   display: flex;
   justify-content: space-between;
@@ -117,12 +219,12 @@ page {
 }
 .row-title {
   font-size: 29rpx;
-  font-weight: 600;
+  font-weight: 500;
   flex: 1;
   margin-right: 16rpx;
 }
 .row-sub {
-  color: #909399;
+  color: #6b7280;
   font-size: 24rpx;
   margin-top: 10rpx;
   line-height: 1.6;
@@ -133,22 +235,44 @@ page {
   align-items: center;
   margin-top: 16rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid #f2f3f5;
+  border-top: 1rpx solid #f1f3f5;
 }
 .row-time {
-  color: #c0c4cc;
+  color: #9ca3af;
   font-size: 22rpx;
 }
-.btn-mini {
-  border: 1rpx solid #1ab394;
-  color: #1ab394;
-  border-radius: 8rpx;
-  font-size: 24rpx;
-  padding: 8rpx 24rpx;
-  display: inline-block;
+
+/* ---------- 空态（旧页面沿用 .empty，新页面用 EmptyState 组件） ---------- */
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 120rpx 0;
+  font-size: 26rpx;
 }
-.btn-mini-gray {
-  border: 1rpx solid #dcdfe6;
-  color: #606266;
+
+/* ---------- 骨架屏 ---------- */
+.skeleton {
+  background: linear-gradient(90deg, #f1f3f5 25%, #e9ecef 37%, #f1f3f5 63%);
+  background-size: 400% 100%;
+  animation: sk 1.4s ease infinite;
+  border-radius: 12rpx;
+}
+@keyframes sk {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ---------- 通用工具 ---------- */
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.safe-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

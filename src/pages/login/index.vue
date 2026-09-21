@@ -1,30 +1,45 @@
 <template>
-  <view class="login-page">
+  <view class="login">
     <view class="brand">
-      <view class="brand-logo">企</view>
-      <view class="brand-name">企业管理系统</view>
-      <view class="brand-sub">移动工作台</view>
+      <view class="logo">企</view>
+      <view class="name">企业管理系统</view>
+      <view class="sub">移动工作台</view>
     </view>
 
-    <view class="login-card">
-      <view class="form-item">
-        <text class="form-label">用户名</text>
-        <input class="form-input" v-model="form.username" placeholder="请输入用户名" />
+    <view class="form">
+      <view class="row">
+        <AppIcon name="user" :size="20" color="#9CA3AF" />
+        <input
+          class="ipt"
+          v-model="form.username"
+          placeholder="请输入用户名"
+          placeholder-class="ph"
+        />
       </view>
-      <view class="form-item">
-        <text class="form-label">密码</text>
-        <input class="form-input" v-model="form.password" password placeholder="请输入密码" @confirm="doLogin" />
+      <view class="row">
+        <AppIcon name="shield" :size="20" color="#9CA3AF" />
+        <input
+          class="ipt"
+          v-model="form.password"
+          password
+          placeholder="请输入密码"
+          placeholder-class="ph"
+          @confirm="doLogin"
+        />
       </view>
-      <button class="btn-primary login-btn" :disabled="loading" @click="doLogin">
-        {{ loading ? '登录中…' : '登 录' }}
-      </button>
-      <view class="tip">默认租户：企业平台</view>
     </view>
+
+    <button class="btn-primary submit" :disabled="loading" @click="doLogin">
+      {{ loading ? '登录中…' : '登 录' }}
+    </button>
+
+    <view class="tip">默认租户：企业平台</view>
   </view>
 </template>
 
 <script setup>
 import { reactive, ref } from 'vue'
+import AppIcon from '../../components/AppIcon.vue'
 import { login, getPermissionInfo } from '../../api'
 import { setAuth, setUser, clearAuth } from '../../utils/auth'
 import { refreshDict } from '../../utils/dict'
@@ -55,8 +70,8 @@ const doLogin = async () => {
       permissions: info.permissions || []
     })
     refreshDict()
-    // 登录跳转后的一级页 = 聊天（tabBar 首页）
-    uni.reLaunch({ url: '/pages/chat/index' })
+    // 登录后落地页 = 消息（tabBar 首位）
+    uni.reLaunch({ url: '/pages/message/index' })
   } catch (e) {
     const msg = e?.message || String(e)
     uni.showModal({ title: '登录失败', content: msg.includes('账号密码') ? '账号或密码错误' : msg, showCancel: false })
@@ -67,49 +82,74 @@ const doLogin = async () => {
 }
 </script>
 
-<style scoped>
-.login-page {
+<style lang="scss" scoped>
+.login {
   min-height: 100vh;
-  background: linear-gradient(160deg, #1ab394 0%, #16987e 45%, #f5f6f8 45.1%);
-  padding: 0 40rpx;
+  background: #ffffff;
+  padding: 0 56rpx;
+  box-sizing: border-box;
 }
+
 .brand {
-  padding: 120rpx 0 60rpx;
+  padding: 160rpx 0 80rpx;
   text-align: center;
-  color: #fff;
 }
-.brand-logo {
-  width: 120rpx;
-  height: 120rpx;
-  line-height: 120rpx;
-  border-radius: 32rpx;
-  background: rgba(255, 255, 255, 0.2);
+.logo {
+  width: 128rpx;
+  height: 128rpx;
+  line-height: 128rpx;
+  border-radius: 36rpx;
+  background: $c-primary;
+  color: #ffffff;
   font-size: 60rpx;
-  font-weight: 700;
-  margin: 0 auto 24rpx;
+  font-weight: 500;
+  margin: 0 auto 32rpx;
 }
-.brand-name {
-  font-size: 40rpx;
-  font-weight: 700;
+.name {
+  font-size: 42rpx;
+  font-weight: 500;
+  color: $c-text-1;
+  letter-spacing: 1rpx;
 }
-.brand-sub {
-  font-size: 24rpx;
-  opacity: 0.85;
-  margin-top: 8rpx;
+.sub {
+  font-size: 26rpx;
+  color: $c-text-3;
+  margin-top: 12rpx;
 }
-.login-card {
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 48rpx 40rpx;
-  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.08);
+
+.form {
+  margin-top: 24rpx;
 }
-.login-btn {
-  margin-top: 16rpx;
+.row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  height: 108rpx;
+  border-bottom: 1rpx solid $c-divider;
 }
+.row:last-child {
+  border-bottom: none;
+}
+.ipt {
+  flex: 1;
+  height: 108rpx;
+  font-size: 30rpx;
+  color: $c-text-1;
+  background: transparent;
+}
+.ph {
+  color: $c-text-4;
+  font-size: 30rpx;
+}
+
+.submit {
+  margin-top: 72rpx;
+}
+
 .tip {
   text-align: center;
-  color: #c0c4cc;
+  color: $c-text-4;
   font-size: 22rpx;
-  margin-top: 24rpx;
+  margin-top: 32rpx;
 }
 </style>

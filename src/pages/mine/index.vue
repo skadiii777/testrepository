@@ -1,48 +1,70 @@
 <template>
-  <view>
-    <view class="profile">
-      <view class="avatar">{{ (user.nickname || '?')[0] }}</view>
-      <view class="pinfo">
-        <view class="pname">{{ user.nickname || '未登录' }}</view>
-        <view class="psub">租户：企业平台</view>
+  <view class="page">
+    <view class="header">
+      <Avatar :name="user.nickname || ''" :size="124" />
+      <view class="hinfo">
+        <view class="hname">{{ user.nickname || '未登录' }}</view>
+        <view class="hsub">企业平台 · 移动工作台</view>
       </view>
     </view>
 
-    <view class="card menu">
-      <view class="mi" @click="uni.navigateTo({ url: '/pages/leave/index' })">
-        <text class="mi-label">我的请假</text><text class="mi-arrow">›</text>
-      </view>
-      <view class="mi" @click="uni.navigateTo({ url: '/pages/expense/index' })">
-        <text class="mi-label">我的报销</text><text class="mi-arrow">›</text>
-      </view>
-      <view class="mi" @click="uni.navigateTo({ url: '/pages/correction/index' })">
-        <text class="mi-label">我的补卡</text><text class="mi-arrow">›</text>
-      </view>
-      <view class="mi" @click="uni.navigateTo({ url: '/pages/report/index' })">
-        <text class="mi-label">业务汇报</text><text class="mi-arrow">›</text>
-      </view>
+    <view class="group-title">我的申请</view>
+    <view class="group">
+      <Cell
+        v-for="(m, i) in menus"
+        :key="m.title"
+        :title="m.title"
+        :icon="m.icon"
+        :icon-bg="m.bg"
+        :icon-fg="m.fg"
+        :border="i < menus.length - 1"
+        arrow
+        @click="uni.navigateTo({ url: m.url })"
+      />
     </view>
 
-    <view class="card menu">
-      <view class="mi" @click="openPc">
-        <text class="mi-label">电脑端完整版</text><text class="mi-arrow">›</text>
-      </view>
-      <view class="mi">
-        <text class="mi-label">版本</text><text class="mi-val">v1.0.0 移动工作台</text>
-      </view>
+    <view class="group-title">其他</view>
+    <view class="group">
+      <Cell
+        title="电脑端完整版"
+        desc="功能更全面，适合批量操作"
+        icon="monitor"
+        icon-bg="#F1EFE8"
+        icon-fg="#5F5E5A"
+        arrow
+        @click="openPc"
+      />
+      <Cell
+        title="版本"
+        icon="info"
+        icon-bg="#F1EFE8"
+        icon-fg="#5F5E5A"
+        value="v1.0.0 移动工作台"
+        :border="false"
+      />
     </view>
 
     <view class="logout" @click="doLogout">退出登录</view>
+    <view class="safe-bottom" />
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import Avatar from '../../components/Avatar.vue'
+import Cell from '../../components/Cell.vue'
 import { getUser, clearAuth } from '../../utils/auth'
 import { logout } from '../../api'
 
 const user = ref(getUser() || {})
+
+const menus = [
+  { title: '我的请假', icon: 'calendar', bg: '#E1F5EE', fg: '#0F6E56', url: '/pages/leave/index' },
+  { title: '我的报销', icon: 'bill', bg: '#E6F1FB', fg: '#185FA5', url: '/pages/expense/index' },
+  { title: '我的补卡', icon: 'clock', bg: '#FAEEDA', fg: '#854F0B', url: '/pages/correction/index' },
+  { title: '业务汇报', icon: 'doc', bg: '#EEEDFE', fg: '#534AB7', url: '/pages/report/index' }
+]
 
 const openPc = () => {
   // #ifdef H5
@@ -70,66 +92,42 @@ const doLogout = () =>
 onShow(() => (user.value = getUser() || {}))
 </script>
 
-<style scoped>
-.profile {
-  background: linear-gradient(135deg, #1ab394, #149c80);
-  color: #fff;
+<style lang="scss" scoped>
+.header {
+  background: $c-primary;
+  padding: 56rpx 36rpx 48rpx;
   display: flex;
   align-items: center;
-  padding: 60rpx 40rpx 48rpx;
+  gap: 26rpx;
 }
-.avatar {
-  width: 120rpx;
-  height: 120rpx;
-  line-height: 120rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  text-align: center;
-  font-size: 52rpx;
-  font-weight: 700;
-  margin-right: 28rpx;
+.hname {
+  font-size: 38rpx;
+  font-weight: 500;
+  color: #ffffff;
 }
-.pname {
-  font-size: 36rpx;
-  font-weight: 700;
-}
-.psub {
+.hsub {
   font-size: 24rpx;
-  opacity: 0.85;
-  margin-top: 8rpx;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 10rpx;
 }
-.menu {
-  padding: 8rpx 28rpx;
-}
-.mi {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 28rpx 0;
-  border-bottom: 1rpx solid #f5f6f8;
-  font-size: 28rpx;
-}
-.mi:last-child {
-  border-bottom: none;
-}
-.mi-label {
-  color: #303133;
-}
-.mi-val {
-  color: #909399;
+
+.group-title {
   font-size: 24rpx;
+  color: $c-text-3;
+  padding: 32rpx 40rpx 12rpx;
 }
-.mi-arrow {
-  color: #c0c4cc;
-  font-size: 34rpx;
-}
+
 .logout {
-  margin: 40rpx 24rpx;
-  background: #fff;
-  color: #f56c6c;
+  margin: 32rpx 28rpx 0;
+  background: #ffffff;
+  color: $c-danger;
   text-align: center;
-  line-height: 92rpx;
-  border-radius: 16rpx;
+  line-height: 100rpx;
+  border-radius: 24rpx;
   font-size: 30rpx;
+  box-shadow: $shadow-card;
+}
+.logout:active {
+  background: #fdf5f5;
 }
 </style>
