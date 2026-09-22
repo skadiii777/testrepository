@@ -318,10 +318,12 @@ page {
 .card-enter {
   animation: fade-in-up 0.34s cubic-bezier(0.33, 1, 0.68, 1) both;
 }
-/* 错落进入：配 --d（ms）延迟 */
+/* 错落进入：配 --d（ms）延迟。
+   不用基础 opacity:0 + both —— tabBar 页面 keep-alive 切回时动画不重放，
+   基础样式 opacity:0 会让列表永久不可见（生产实测复现）。
+   backwards 在 delay 期间填充 from 态，动画结束后回到自然态（可见）。 */
 .stagger {
-  opacity: 0;
-  animation: fade-in-up 0.32s cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation: fade-in-up 0.32s cubic-bezier(0.33, 1, 0.68, 1) backwards;
   animation-delay: var(--d, 0ms);
 }
 /* 按钮点击态 */
