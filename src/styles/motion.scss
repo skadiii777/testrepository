@@ -1,0 +1,198 @@
+// ============================================================================
+// 动效系统（Motion System）—— 桌面端统一的过渡曲线、关键帧与微交互层
+//
+// 设计原则：
+//  - 克制：位移 ≤ 16px、时长 0.18–0.45s、缓出为主，办公场景不炫技
+//  - 低风险：只加动画与过渡，不改 Element Plus 组件结构与业务逻辑
+//  - 安全：页面进入动画用 CSS animation（挂载执行一次），
+//          不依赖 <transition> 包裹 keep-alive（规避多根节点白屏，见 enterprise-pro-ui/AGENTS.md）
+// ============================================================================
+
+// ------------------------- 过渡曲线（Token） -------------------------
+:root {
+  // 主缓出：用于绝大多数进入/过渡，前快后慢、干净利落到终点
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+  // 回弹：用于弹窗、打卡按钮等需要"落到位"感的场景
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --dur-fast: 0.18s;
+  --dur-base: 0.28s;
+  --dur-slow: 0.45s;
+}
+
+// ------------------------- 页面进入 -------------------------
+// 用法：给页面根元素加 .page-enter。挂载时执行一次，不依赖路由 transition。
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: page-enter var(--dur-base) var(--ease-out-cubic) both;
+}
+
+// 错落进入：子元素各自加 .stagger 并用 style 设置 --d（ms）做依次浮现
+// 用法：<div class="stagger" :style="{ '--d': i * 60 + 'ms' }">
+.stagger {
+  opacity: 0;
+  animation: page-enter var(--dur-base) var(--ease-out-cubic) both;
+  animation-delay: var(--d, 0ms);
+}
+
+// ------------------------- 缩放进入（弹窗/卡片/徽标） -------------------------
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.scale-in {
+  animation: scale-in var(--dur-base) var(--ease-spring) both;
+}
+
+// ------------------------- 卡片悬浮（微交互） -------------------------
+// 比旧 .hover-lift 更细腻：位移 + 阴影 + 主色边框。用在指标卡/快捷入口等。
+.card-hover {
+  transition:
+    transform var(--dur-fast) var(--ease-out-cubic),
+    box-shadow var(--dur-fast) var(--ease-out-cubic),
+    border-color var(--dur-fast) ease;
+  will-change: transform;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--el-box-shadow-light);
+    border-color: var(--el-color-primary-light-7);
+  }
+
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+
+// 列表行/快捷项的"轻抬"（不改边框，避免表格页误伤）
+.soft-hover {
+  transition:
+    transform var(--dur-fast) var(--ease-out-cubic),
+    box-shadow var(--dur-fast) ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--el-box-shadow-lighter);
+  }
+}
+
+// ------------------------- 骨架屏 -------------------------
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f2f3f5 25%, #e9edf2 37%, #f2f3f5 63%);
+  background-size: 300% 100%;
+  animation: shimmer 1.3s ease infinite;
+  border-radius: 6px;
+}
+
+// ------------------------- 柔和脉冲（徽标/在线点/预警） -------------------------
+@keyframes pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.72;
+  }
+}
+.pulse-soft {
+  animation: pulse-soft 1.6s var(--ease-in-out-soft) infinite;
+}
+
+// 呼吸光环（打卡按钮、重点 CTA）
+@keyframes ring-breathe {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--pulse-rgb, 24, 144, 255), 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(var(--pulse-rgb, 24, 144, 255), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--pulse-rgb, 24, 144, 255), 0);
+  }
+}
+.ring-breathe {
+  animation: ring-breathe 2s var(--ease-in-out-soft) infinite;
+}
+
+// ------------------------- 数字等宽 -------------------------
+.num-tab {
+  font-variant-numeric: tabular-nums;
+}
+
+// ------------------------- Element Plus 轻覆盖（只加过渡，不改结构） -------------------------
+// 卡片：只过渡阴影与边框，不 transition transform（避免密集卡片页的性能负担）
+.el-card {
+  transition:
+    box-shadow var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+
+// 按钮：状态切换平滑
+.el-button {
+  transition: all var(--dur-fast) ease;
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+// 表格：行 hover 换主色浅底，表头稍加深
+.el-table__body tr:hover > td.el-table__cell {
+  background: var(--el-color-primary-light-9) !important;
+}
+
+// 菜单：配色过渡
+.el-menu-item,
+.el-sub-menu__title {
+  transition:
+    color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease;
+}
+
+// 弹层（dialog/drawer/popover）：内容进入时轻缩放
+.el-dialog {
+  border-radius: 12px;
+}
+.el-message-box,
+.el-popover {
+  animation: scale-in var(--dur-fast) var(--ease-spring) both;
+}
+
+// ------------------------- 深色/浅色主题切换平滑 -------------------------
+// 仅让颜色类属性平滑，避免 transition: all 拖慢交互
+body,
+.el-card,
+.el-header,
+.el-menu,
+.el-table__header-wrapper th.el-table__cell {
+  transition-property: background-color, color, border-color;
+  transition-duration: var(--dur-base);
+  transition-timing-function: ease;
+}

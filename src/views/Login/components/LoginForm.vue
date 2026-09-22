@@ -193,6 +193,12 @@ const getCode = async () => {
 const getTenantId = async () => {
   if (loginData.tenantEnable === 'true') {
     const res = await LoginApi.getTenantIdByName(loginData.loginForm.tenantName)
+    if (!res) {
+      // 租户名不存在时，原实现会静默 setTenantId(null)，导致后续请求 tenant-id 头为空、
+      // 登录以"无任何提示的失败"收场。这里直接给出明确原因。
+      message.error(`租户「${loginData.loginForm.tenantName}」不存在，请检查租户名称`)
+      throw new Error('tenant not found: ' + loginData.loginForm.tenantName)
+    }
     authUtil.setTenantId(res)
   }
 }
@@ -256,9 +262,16 @@ const handleLogin = async (params: any) => {
     } else {
       await push({ path: redirect.value || permissionStore.addRouters[0].path })
     }
+  } catch (e) {
+    // 登录失败：axios 响应拦截器已弹出后端返回的 msg（如"账号或密码错误"），
+    // 这里只兜底记录，避免异常继续冒泡
+    console.error('[login] 登录失败', e)
   } finally {
     loginLoading.value = false
-    loading.value.close()
+    // loading 只在"登录成功之后"才被赋值为 ElLoading 实例；校验失败或登录报错时
+    // 它仍是 undefined，无条件 .close() 会抛 TypeError 并**覆盖掉真实的登录错误提示**，
+    // 表现为"登录显示错误"却看不到原因。故用可选链兜底。
+    loading.value?.close()
   }
 }
 

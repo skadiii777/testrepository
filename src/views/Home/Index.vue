@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="page-enter">
     <!-- 欢迎栏：问候 + 今日打卡概况 -->
-    <el-card shadow="never" class="mb-15px">
+    <el-card shadow="never" class="mb-15px hero-card">
       <el-row :gutter="16" justify="space-between" align="middle">
         <el-col :xl="14" :lg="14" :md="14" :sm="24" :xs="24">
           <div class="flex items-center">
@@ -40,8 +40,8 @@
     <!-- 快捷入口 -->
     <el-card shadow="never" class="mb-15px" header="快捷入口">
       <el-row :gutter="12">
-        <el-col v-for="item in quickLinks" :key="item.path" :xl="8" :lg="8" :md="8" :sm="12" :xs="12">
-          <div class="quick-item" @click="router.push(item.path)">
+        <el-col v-for="(item, i) in quickLinks" :key="item.path" :xl="8" :lg="8" :md="8" :sm="12" :xs="12">
+          <div class="quick-item stagger" :style="{ '--d': i * 45 + 'ms' }" @click="router.push(item.path)">
             <Icon :icon="item.icon" :size="26" class="quick-icon" />
             <div>
               <div class="text-15px font-600">{{ item.title }}</div>
@@ -179,12 +179,33 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+/* 欢迎栏：淡主色渐变底 + 左侧色条，强化"首页"视觉锚点 */
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  border-left: 3px solid var(--el-color-primary) !important;
+  background: linear-gradient(
+    120deg,
+    var(--el-color-primary-light-9) 0%,
+    var(--el-bg-color) 45%
+  ) !important;
+}
+
 .work-chip {
   min-width: 96px;
   padding: 10px 14px;
   text-align: center;
   border-radius: 8px;
-  background-color: var(--el-fill-color-light);
+  background-color: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color-lighter);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--el-box-shadow-lighter);
+  }
 }
 
 .quick-item {
@@ -196,16 +217,26 @@ onMounted(async () => {
   padding: 0 16px;
   cursor: pointer;
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: 10px;
+  background: var(--el-bg-color);
+  transition:
+    transform 0.2s var(--ease-out-cubic, ease),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 
   &:hover {
+    transform: translateY(-3px);
     border-color: var(--el-color-primary-light-5);
     box-shadow: var(--el-box-shadow-light);
+
+    .quick-icon {
+      transform: scale(1.12) rotate(-5deg);
+    }
   }
 
   .quick-icon {
     color: var(--el-color-primary);
+    transition: transform 0.22s var(--ease-out-cubic, ease);
   }
 }
 
@@ -213,5 +244,10 @@ onMounted(async () => {
   padding: 10px 12px;
   border-radius: 8px;
   background-color: var(--el-fill-color-lighter);
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: var(--el-fill-color-light);
+  }
 }
 </style>

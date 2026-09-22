@@ -7,6 +7,12 @@
       <div
         :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px lt-xl:hidden overflow-x-hidden overflow-y-auto`"
       >
+        <!-- 背景浮动光斑装饰（纯装饰）：独立裁剪层，负偏移与动画位移不会撑出左列滚动条 -->
+        <div class="glow-layer">
+          <div class="glow glow-1"></div>
+          <div class="glow glow-2"></div>
+          <div class="glow glow-3"></div>
+        </div>
         <!-- 左上角的 logo + 系统标题 -->
         <div class="relative flex items-center text-white">
           <img alt="" class="mr-10px h-48px w-48px" src="@/assets/imgs/logo.png" />
@@ -111,6 +117,57 @@ $prefix-cls: #{$namespace}-login;
       background-repeat: no-repeat;
       content: '';
     }
+  }
+
+  // 背景浮动光斑（轻量装饰，缓慢上下浮动）
+  // 裁剪层：光斑用负偏移 + 动画位移做"半出画面"效果，若直接挂在 overflow-y-auto 的左列上
+  // 会撑出滚动区域（左列中间出现竖向滚动条）。inset-0 + overflow-hidden 把装饰约束在列内。
+  .glow-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(42px);
+    opacity: 0.45;
+    pointer-events: none;
+    animation: glow-float 9s ease-in-out infinite;
+  }
+  .glow-1 {
+    width: 220px;
+    height: 220px;
+    left: -70px;
+    top: -50px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.55), transparent 66%);
+  }
+  .glow-2 {
+    width: 180px;
+    height: 180px;
+    right: -50px;
+    top: 32%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.42), transparent 66%);
+    animation-delay: -3s;
+  }
+  .glow-3 {
+    width: 250px;
+    height: 250px;
+    left: 32%;
+    bottom: -80px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.5), transparent 66%);
+    animation-delay: -6s;
+  }
+}
+
+@keyframes glow-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(0, -26px) scale(1.07);
   }
 }
 </style>
