@@ -40,9 +40,11 @@
 
 // 错落进入：子元素各自加 .stagger 并用 style 设置 --d（ms）做依次浮现
 // 用法：<div class="stagger" :style="{ '--d': i * 60 + 'ms' }">
+// 注意：不用基础 opacity:0 + both —— keep-alive 页面切回时动画不重放，
+// 基础样式 opacity:0 会让内容永久不可见（移动端同构问题，生产实测复现）。
+// backwards 在 delay 期间填充 from 态，动画结束后回到自然态（可见）。
 .stagger {
-  opacity: 0;
-  animation: page-enter var(--dur-base) var(--ease-out-cubic) both;
+  animation: page-enter var(--dur-base) var(--ease-out-cubic) backwards;
   animation-delay: var(--d, 0ms);
 }
 
