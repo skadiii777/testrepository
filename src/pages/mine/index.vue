@@ -9,7 +9,7 @@
     </view>
 
     <view class="group-title">我的申请</view>
-    <view class="group">
+    <view class="group card-enter">
       <Cell
         v-for="(m, i) in menus"
         :key="m.title"
@@ -24,7 +24,7 @@
     </view>
 
     <view class="group-title">其他</view>
-    <view class="group">
+    <view class="group card-enter" style="animation-delay: 0.08s">
       <Cell
         title="电脑端完整版"
         desc="功能更全面，适合批量操作"

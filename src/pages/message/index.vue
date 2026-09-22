@@ -27,9 +27,10 @@
         :hint="keyword ? '换个关键词试试' : '可在电脑端添加好友后同步'"
       />
       <view
-        v-for="f in filteredFriends"
+        v-for="(f, i) in filteredFriends"
         :key="f.friendUserId"
-        class="conv"
+        class="conv stagger"
+        :style="{ '--d': i * 35 + 'ms' }"
         @click="openChat(f)"
       >
         <Avatar :name="f.displayName || f.nickname || ''" :size="88" square />

@@ -14,7 +14,7 @@
 
     <!-- 打卡区：单主按钮，按状态切换动作 -->
     <view class="punch-wrap">
-      <view class="punch-ring" :class="{ done: !punchAction.type }" @click="doPunch">
+      <view class="punch-ring" :class="[{ 'ring-breathe': !!punchAction.type }, { done: !punchAction.type }]" @click="doPunch">
         <text class="punch-label">{{ punchAction.label }}</text>
         <text class="punch-time">{{ clockShort }}</text>
       </view>
@@ -22,7 +22,7 @@
     </view>
 
     <!-- 指标卡（上移覆盖） -->
-    <view class="stats">
+    <view class="stats card-enter">
       <view class="stat" @click="goApproval">
         <view class="stat-num">{{ overtimeHours }}</view>
         <view class="stat-label">本月加班 (h)</view>
@@ -38,7 +38,7 @@
     </view>
 
     <!-- 假期余额 -->
-    <view class="card" v-if="quotaList.length">
+    <view class="card card-enter" v-if="quotaList.length" style="animation-delay: 0.06s">
       <view class="card-title">我的假期余额</view>
       <view class="quota-row">
         <view class="quota-item" v-for="q in quotaList" :key="q.label">
@@ -49,10 +49,10 @@
     </view>
 
     <!-- 常用应用 -->
-    <view class="card">
+    <view class="card card-enter" style="animation-delay: 0.12s">
       <view class="card-title">常用应用</view>
       <view class="grid">
-        <view class="grid-item" v-for="g in grids" :key="g.text" @click="go(g)">
+        <view class="grid-item stagger" v-for="(g, i) in grids" :key="g.text" :style="{ '--d': i * 40 + 'ms' }" @click="go(g)">
           <view class="grid-icon" :style="{ background: g.bg }">
             <AppIcon :name="g.icon" :size="22" :color="g.fg" />
             <text v-if="g.badge" class="grid-badge">{{ g.badge > 99 ? '99+' : g.badge }}</text>

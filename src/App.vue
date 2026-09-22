@@ -266,6 +266,80 @@ page {
   }
 }
 
+/* ---------- 动画体系（进入 / 微交互，克制使用） ---------- */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes ring-breathe {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 24rpx rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.8;
+  }
+}
+
+/* 页面根容器进入 */
+.page-enter {
+  animation: fade-in-up 0.3s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+/* 卡片 / 区块进入 */
+.card-enter {
+  animation: fade-in-up 0.34s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+/* 错落进入：配 --d（ms）延迟 */
+.stagger {
+  opacity: 0;
+  animation: fade-in-up 0.32s cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+/* 按钮点击态 */
+.tap-scale {
+  transition: transform 0.15s ease;
+}
+.tap-scale:active {
+  transform: scale(0.96);
+}
+/* 呼吸光环（打卡 / 重点 CTA） */
+.ring-breathe {
+  animation: ring-breathe 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+/* 柔和脉冲（徽标 / 预警） */
+.pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
 /* ---------- 通用工具 ---------- */
 .flex-between {
   display: flex;
