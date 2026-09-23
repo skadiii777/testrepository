@@ -1,5 +1,13 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-23（二）· RAG 上生产：基础设施就位，RAG 开关待模型 API
+
+- **Qdrant 生产安装**：最新版二进制需 GLIBC 2.38（服务器 Ubuntu 22.04 只有 2.35），降级 **v1.10.1** 兼容版装 /usr/local/bin + systemd `qdrant.service`（数据 /data/qdrant，仅监听 127.0.0.1:6333/6334，无 api-key）；GitHub 大文件下载慢，用 `-C -` 断点续传多轮拉完
+- **SQL 上生产**：`ai_rag.sql`（ai_knowledge_base/ai_knowledge_document 两表）+ `ai_menu_enable.sql`（791/850-854 status 0 启用；首版 `--（` 注释缺空格报 1064 已修）——生产侧栏出现「AI 大模型/AI 知识库」
+- **新 jar 上线**（215MB，含 AI 模块与 spring-ai/qdrant 依赖）；`ENTERPRISE_AI_RAG_ENABLED` 保持默认 **false**：RagController @ConditionalOnProperty 未注册 → `/admin-api/biz/ai/rag/*` 404 为设计行为。**不能提前开开关**：`initialize-schema=true` 启动时会调嵌入模型探维度，模型 API 不在即启动失败
+- 回归：登录/采购分页正常；内存充足（available ~5.1G）
+- **待办（等用户模型 API）**：①确认 API 协议——Ollama 兼容则 `spring.ai.ollama.base-url` 指过去即可；OpenAI 兼容则需换 spring-ai openai starter；②`enterprise.env` 加 `ENTERPRISE_AI_RAG_ENABLED=true`；③全链路冒烟（建库→传文档→问答）
+
 ## 2026-09-23 · Ollama + Qdrant RAG 首期闭环
 
 - 启用 AI 模块构建依赖，并以显式环境开关控制 RAG；Qdrant 保存向量，MySQL 保存租户知识库和文档元数据。
