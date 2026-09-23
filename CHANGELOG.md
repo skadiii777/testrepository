@@ -1,5 +1,13 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-23（五）· RAG 全链路上生产（SenseNova chat + ollama 嵌入）
+
+- **新 key 验证通过**（旧 key 实为网关侧拒绝）：ECS 出口 chat 成功（sensenova-6.8-flash-lite，带 reasoning）；`/v1/models` 列出 9 模型（deepseek-v4/glm-5.2/kimi-k3 等）——**全部为 chat/image，网关无 embeddings 端点**
+- **嵌入方案（用户拍板：装 ollama 仅嵌入）**：ollama 0.5.7 手动安装（GitHub tgz 服务器侧仅 ~40KB/s，本机下载 1.68GB 后 scp 上行 ~25 分钟；资产名是 `.tgz` 非 `.tar.gz`）；systemd（User=ollama，`HOME=/data/ollama` 必设否则 mkdir permission denied，OLLAMA_MODELS=/data/ollama/models，仅监听 127.0.0.1）；nomic-embed-text 274MB
+- **混合模式生效**：`ENTERPRISE_AI_MODEL_CHAT=openai` + `EMBEDDING=ollama` + `RAG_ENABLED=true`，RagController 注册、Qdrant 连接正常
+- **生产冒烟全过**：建知识库 id=1 → 上传语料 27 块向量化（19.6s，状态 READY）→ 问答命中（"请假会立即扣额度吗"→"不会，先进入待审批，审批通过才扣减"，引用 biz-sop.md）→ 泛问（"xx 的规则"）召回偏标题块为已知检索调优项（topK/阈值/分块优化列入升级展望）
+- 运维形态：ollama/qdrant 双 systemd 仅本机监听；enterprise.env 新增 4+4 个 ENTERPRISE_AI_* 变量（600）
+
 ## 2026-09-23（四）· SenseNova（OpenAI 兼容）接入准备——双模型选择器
 
 - **依赖**：`spring-ai-starter-model-openai` 1.0.0 入 dependencies/module-ai，与 ollama starter 并存
