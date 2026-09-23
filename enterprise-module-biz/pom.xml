@@ -19,6 +19,11 @@
     </description>
 
     <dependencies>
+        <!-- AI capability contracts used by business modules without depending on the RAG implementation -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-common</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.enterprise</groupId>
             <artifactId>enterprise-module-system</artifactId>

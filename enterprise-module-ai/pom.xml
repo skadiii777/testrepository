@@ -14,9 +14,7 @@
 
     <name>${project.artifactId}</name>
     <description>
-        AI 模块：RAG 知识库 + 业务智能体
-        嵌入/生成用 Ollama 本地模型；向量库用 Spring AI SimpleVectorStore（JSON 文件持久化，学习阶段零外部依赖）
-        后期可无缝换 Chroma/pgvector/Milvus——只需换 VectorStore 实现
+        AI 模块：基于 Ollama 和 Qdrant 的租户隔离 RAG 知识库
     </description>
 
     <dependencies>
@@ -32,7 +30,15 @@
             <groupId>com.enterprise</groupId>
             <artifactId>enterprise-spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- Spring AI：Ollama（聊天+嵌入），SimpleVectorStore 内置在 core 里 -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-biz-tenant</artifactId>
+        </dependency>
+        <!-- Spring AI：Ollama（聊天+嵌入）及 Qdrant 向量存储 -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
@@ -40,6 +46,21 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-vector-store</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-qdrant-store</artifactId>
+        </dependency>
+        <!-- Qdrant client 声明为 runtime 的 gRPC API 在配置 Bean 时需要编译期可见 -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-api</artifactId>
+            <version>1.65.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

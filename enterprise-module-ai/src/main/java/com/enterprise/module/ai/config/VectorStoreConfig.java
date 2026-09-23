@@ -1,35 +1,42 @@
 package com.enterprise.module.ai.config;
 
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.io.File;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.QdrantGrpcClient;
 
 /**
- * 向量库配置（学习阶段：SimpleVectorStore，JSON 文件持久化，零外部依赖）
- *
- * 概念：VectorStore 是 RAG 的"记忆体"——存嵌入向量 + 原文，支持语义检索。
- * SimpleVectorStore 把所有向量放内存，序列化到 JSON 文件持久化。
- * 后期换 Chroma/pgvector/Milvus 只需换这个 Bean 的实现类，上层 Service 代码零改动。
+ * Qdrant 在模块开关开启时才连接；向量库生命周期独立于应用进程。
  *
  * @author 企业管理平台
  */
 @Configuration
+@ConditionalOnProperty(prefix = "enterprise.ai.rag", name = "enabled", havingValue = "true")
 public class VectorStoreConfig {
 
-    private static final String STORE_FILE = "vector-store.json";
-
     @Bean
-    public VectorStore vectorStore(EmbeddingModel embeddingModel) {
-        SimpleVectorStore store = SimpleVectorStore.builder(embeddingModel).build();
-        File file = new File(STORE_FILE);
-        if (file.exists()) {
-            store.load(file); // 启动时从 JSON 恢复已嵌入的文档
-        }
-        return store;
+    public QdrantClient ragQdrantClient(
+            @Value("${enterprise.ai.rag.qdrant.host:127.0.0.1}") String host,
+            @Value("${enterprise.ai.rag.qdrant.port:6334}") int port,
+            @Value("${enterprise.ai.rag.qdrant.api-key:}") String apiKey,
+            @Value("${enterprise.ai.rag.qdrant.tls:false}") boolean tls) {
+        QdrantGrpcClient.Builder builder = QdrantGrpcClient.newBuilder(host, port, tls);
+        if (apiKey != null && !apiKey.isBlank()) builder.withApiKey(apiKey);
+        return new QdrantClient(builder.build());
+    }
+
+    @Bean("vectorStore")
+    public VectorStore vectorStore(QdrantClient ragQdrantClient, EmbeddingModel embeddingModel,
+                                   @Value("${enterprise.ai.rag.qdrant.collection:enterprise_knowledge}") String collection) {
+        return org.springframework.ai.vectorstore.qdrant.QdrantVectorStore
+                .builder(ragQdrantClient, embeddingModel)
+                .collectionName(collection)
+                .initializeSchema(true)
+                .build();
     }
 
 }

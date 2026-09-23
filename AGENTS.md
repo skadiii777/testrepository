@@ -39,9 +39,11 @@
 ## 当前状态（2026-09-15）
 
 - 生产运行 ID 化版 + P0/P1 评审修复（biz_schema_history V001+V002 已 apply）；前端 pro-ui 已推远程（仓库重建单 commit 7fa85ab）
-- 后端 14+ commit 未推 GitHub（Push Protection/网络积压）；AI 模块(RAG) 已被注释出根 pom 与 server 依赖（74d10f8），恢复需取消两处注释
+- 后端 14+ commit 未推 GitHub（Push Protection/网络积压）；AI/RAG 已重新纳入 Maven 构建链，功能默认关闭，启用条件见下方记录
+- AI/RAG：`enterprise-module-ai` 已恢复到 Maven 构建链，RAG 默认关闭；启用前先人工执行 `sql/mysql/ai_rag.sql`，配置 Ollama/Qdrant 环境变量，并完成构建及本地联调。禁止在无明确授权时执行生产 DDL 或启动生产 RAG。
+- 测试样例：业务流程首版语料在 `docs/rag-test-corpus/企业业务流程测试资料.md`；RAG 服务单测可用 `mvn -pl enterprise-module-ai -am -Dtest=RagServiceTest -Dsurefire.failIfNoSpecifiedTests=false test`。真实联测使用 opt-in `RagServiceIntegrationTest`，默认只允许写入 `enterprise_pro_qa_rag_*` MySQL 库和 `enterprise_knowledge_qa_*` Qdrant collection；只有显式设置 `RAG_TEST_ALLOW_LOCAL_DEV_DB=true` 时才允许连接精确的 loopback `enterprise-pro`，并且 Qdrant collection 必须是 `enterprise_knowledge`。2026-09-23 本机联测通过（MySQL + Ollama + Qdrant，27 个向量、引用与跨库隔离均通过）。AI 菜单初始化必须用 `status=0` 启用（`CommonStatusEnum`：0=ENABLE、1=DISABLE）；知识库相关菜单 id 791、850-854 已在 V001 修正。本机演示运行地址：后端 `http://127.0.0.1:48080`、前端 `http://127.0.0.1:5173`，登录后打开 `/ai/knowledge`。全量依赖测试当前会被既有脱敏断言（DesensitizeTest）失败拦住。
 - 遗留待办：CI 启用（工作流暂在 docs/ci/，待 PAT workflow scope）、captcha.enable=true（正式上线前）、kd100 凭证真实性确认+轮换
-- 下批候选：销售报价单、月度结账、通知邮件/webhook、批次效期
+- 下批候选：RAG PDF/Office 解析与异步任务、销售报价单、月度结账、通知邮件/webhook、批次效期
 
 ## 远程仓库分支约定（testrepository · push 前先确认分支名）
 

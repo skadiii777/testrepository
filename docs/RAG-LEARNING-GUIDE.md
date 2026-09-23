@@ -203,5 +203,17 @@ application.yaml
 | 回答不含知识库内容 | 小模型不遵循提示词 | 换 7B+ 模型，或加强提示词约束 |
 | 检索到无关内容 | 分块太大/太碎 | 调整分块大小（300-500 字） |
 | 相似内容没被检索到 | 嵌入模型对中文不敏感 | 换 bge-m3 等中文优化嵌入模型 |
-| 重启后知识丢失 | SimpleVectorStore 内存态 | 启动时 load JSON 文件（已实现） |
+| 重启后知识丢失 | 检查 Qdrant 是否为持久化部署、集合名是否一致及服务端连接配置 |
 | 回答太慢 | 1.5B 模型在 CPU 上推理 | 换 API 或 GPU |
+# 当前首期实现说明（2026-09-23）
+
+首期已接入 Ollama 聊天/嵌入模型与 Qdrant 持久向量库，并提供知识库创建、TXT/Markdown 上传、文档查询和删除、带来源引用的问答。MySQL 中的知识库和文档元数据按服务端当前租户隔离，向量检索同时过滤租户 ID 与知识库 ID。前端菜单复用现有 `AI 知识库` 菜单项（组件路径 `ai/knowledge/knowledge/index`）。
+
+启用步骤：
+
+1. 先在目标环境人工执行 `sql/mysql/ai_rag.sql`，确保应用账号具备两张新表的读写权限。
+2. 准备 Ollama 的聊天模型和 `nomic-embed-text` 嵌入模型，并启动 Qdrant gRPC 服务。
+3. 设置 `ENTERPRISE_AI_RAG_ENABLED=true`、`ENTERPRISE_AI_RAG_QDRANT_HOST` 和端口；云端 Qdrant 使用 TLS 与 API Key 环境变量。
+4. 为相应角色授予现有 `ai:knowledge:create/query/delete` 菜单权限，再重启应用并联调上传、引用问答、删除。
+
+首期上传只接受 UTF-8 `.txt`/`.md`，文件最大 2 MiB、文本最多 20 万字符。PDF/Office 解析、异步大文件入库、重试队列、混合检索、评测集和审计记录留待后续阶段。RAG 的 MySQL 与 Qdrant 写入目前通过应用层补偿清理，不具备跨库原子事务保证。

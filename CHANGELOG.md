@@ -1,5 +1,14 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-23 · Ollama + Qdrant RAG 首期闭环
+
+- 启用 AI 模块构建依赖，并以显式环境开关控制 RAG；Qdrant 保存向量，MySQL 保存租户知识库和文档元数据。
+- 新增知识库创建/查询、UTF-8 TXT/Markdown 上传、文档查询/删除和带引用来源的问答；服务端按当前租户校验知识库并给向量检索添加租户与知识库过滤。
+- 首期仅接收不超过 2 MiB 的 TXT/MD，文本上限 20 万字；SQL 结构见 `sql/mysql/ai_rag.sql`。部署前需人工执行迁移并配置 Ollama、Qdrant 与 `ENTERPRISE_AI_RAG_ENABLED=true`。
+- 补充首轮业务流程语料 `docs/rag-test-corpus/企业业务流程测试资料.md`，覆盖销售、采购、请假、报销和库存流水，并列出预期问答及空库隔离场景。
+- 修复知识库页面 404：`CommonStatusEnum` 中 0 表示启用，1 表示禁用；初始化 SQL 曾把 AI 菜单及权限（791、850-854）设为禁用。现已修正 `V001__seed.sql`，并启用本机开发库对应菜单。
+- 验证：RAG 服务单测 4 项通过；真实 MySQL + Ollama + Qdrant 端到端测试通过，语料生成 27 个向量，文档状态为 READY，空知识库跨库隔离通过。自动化数据写入本机隔离库 `enterprise_pro_qa_rag_20260923_1138` / QA collection `enterprise_knowledge_qa_20260923_1151`；经本机页面联调授权后，也将样例写入本机开发库 `enterprise-pro` / collection `enterprise_knowledge`。本机页面现可访问，已从页面提交销售库存问题并看到回答与 `企业业务流程测试资料.md` 引用。后端健康检查 UP，前端地址 `http://127.0.0.1:5173`，知识库路由 `/ai/knowledge`。新增页/API ESLint 通过。完整依赖测试仍被既有 `DesensitizeTest` 掩码格式断言阻断，前端全量 TypeScript 检查仍有多个既有错误。
+
 ## 2026-09-20 · 复核报告（docs/REVIEW-2026-09-20.md）方案落地
 
 - **S1 移动端远程备份（最高优先）**：app 仓库补 package.json 元信息 + README/AGENTS，推送 testrepository `app` 分支成功（`master -> app`，本地 master 跟踪 github/app）；三项目单点风险全部消除

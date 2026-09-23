@@ -115,12 +115,12 @@
 <!--            <version>${revision}</version>-->
 <!--        </dependency>-->
 
-        <!-- AI 大模型相关模块。默认注释，保证编译速度 -->
-<!--        <dependency>-->
-<!--            <groupId>com.enterprise</groupId>-->
-<!--            <artifactId>enterprise-module-ai</artifactId>-->
-<!--            <version>${revision}</version>-->
-<!--        </dependency>-->
+        <!-- AI/RAG 模块；功能由 enterprise.ai.rag.enabled 独立控制 -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-module-ai</artifactId>
+            <version>${revision}</version>
+        </dependency>
 
         <!-- IoT 物联网相关模块。默认注释，保证编译速度 -->
 <!--        <dependency>-->
@@ -161,13 +161,6 @@
 <!--        <dependency>-->
 <!--            <groupId>com.enterprise</groupId>-->
 <!--            <artifactId>enterprise-module-pms</artifactId>-->
-<!--            <version>${revision}</version>-->
-<!--        </dependency>-->
-
-        <!-- AI 模块 -->
-<!--        <dependency>-->
-<!--            <groupId>com.enterprise</groupId>-->
-<!--            <artifactId>enterprise-module-ai</artifactId>-->
 <!--            <version>${revision}</version>-->
 <!--        </dependency>-->
 
