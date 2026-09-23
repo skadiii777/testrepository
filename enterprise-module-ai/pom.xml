@@ -38,10 +38,14 @@
             <groupId>com.enterprise</groupId>
             <artifactId>enterprise-spring-boot-starter-biz-tenant</artifactId>
         </dependency>
-        <!-- Spring AI：Ollama（聊天+嵌入）及 Qdrant 向量存储 -->
+        <!-- Spring AI：Ollama（本地学习）/ OpenAI 兼容网关（生产）二选一启用，Qdrant 向量存储 -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>

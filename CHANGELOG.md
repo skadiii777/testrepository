@@ -1,5 +1,14 @@
 # 更新日志（CHANGELOG）
 
+## 2026-09-23（四）· SenseNova（OpenAI 兼容）接入准备——双模型选择器
+
+- **依赖**：`spring-ai-starter-model-openai` 1.0.0 入 dependencies/module-ai，与 ollama starter 并存
+- **实现选择器修正**：Spring AI 1.0.0 的实现开关是 `spring.ai.model.chat/embedding`（值=ollama|openai，javap 反编译 autoconfigure 类确认），并非 `chat.enabled` 属性——yaml 全部改为 env 驱动的选择器；默认本地 ollama/ollama，生产 env 切 openai；同环境必须单选（ChatClient.Builder 单候选约束）
+- **模型配置全 env 化**：`ENTERPRISE_AI_OPENAI_BASE_URL/API_KEY/CHAT_MODEL/EMBEDDING_MODEL`（api-key 仅入服务器 600 权限 env 文件，不进源码/git/日志）
+- **SenseNova 实测阻塞**：`token.sensenova.cn/v1` 按用户 curl 示例（模型 sensenova-6.8-flash-lite）从 ECS 与本地两处均返回 `{"error":{"code":16,"message":"Forbidden"}}`（鉴权头 Bearer/无 Bearer/X-API-Key 三变体一致）；`/v1/embeddings` 路径 NOT_FOUND。**待用户确认**：key 是否已激活/是否有额外 header、网关是否提供 embeddings——若无 embeddings，建议生产用本地 ollama 仅跑 nomic-embed-text 嵌入（~300MB，轻）+ SenseNova 聊天的混合模式（选择器原生支持）
+- **生产启动失败事故与修复**：openai starter 引入后 `OpenAiAudioSpeechAutoConfiguration` 不受 `spring.ai.model` 选择器控制，`spring.ai.openai.api-key` 空值直接抛异常导致服务反复重启失败（约 4 分钟）；修复=api-key 默认占位非空串（`unused-placeholder`，真实凭据仍由 env 注入、占位串调不通任何接口），部署后恢复。教训：多 starter 并存时"未使用的 autoconfig 也会装配"，引入 starter 前要审其全部 autoconfig 的 key 校验
+- 本批仅构建部署（RAG 开关保持 false），行为无变化
+
 ## 2026-09-23（三）· 生产逐页走查（103 页）
 
 - 从 DB 菜单表重建路由清单（108 条含 5 条孤儿），浏览器逐页走查：路由可达、404 兜底、错误 toast、渲染体积四项检查

@@ -368,17 +368,30 @@ enterprise:
     message-bus:
       type: redis # 消息总线的类型
 
-# Spring AI 配置（Ollama 本地模型 + Chroma 向量库）
+# Spring AI 配置：本地默认 Ollama，生产可切 OpenAI 兼容网关。
+# Spring AI 1.0.0 的实现选择器是 spring.ai.model.chat/embedding（值=ollama|openai），
+# 同一环境只能选一家，否则 ChatClient.Builder 多候选无法装配。
 spring.ai:
+  model:
+    chat: ${ENTERPRISE_AI_MODEL_CHAT:ollama}
+    embedding: ${ENTERPRISE_AI_MODEL_EMBEDDING:ollama}
   ollama:
-    base-url: http://127.0.0.1:11434
-    chat:
-      options:
-        model: deepseek-r1:1.5b
-        temperature: 0.7
-    embedding:
-      options:
-        model: nomic-embed-text
+    base-url: ${ENTERPRISE_AI_OLLAMA_BASE_URL:http://127.0.0.1:11434}
+    chat.options:
+      model: ${ENTERPRISE_AI_OLLAMA_CHAT_MODEL:deepseek-r1:1.5b}
+      temperature: 0.7
+    embedding.options:
+      model: ${ENTERPRISE_AI_OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+  openai:
+    # OpenAI 兼容网关：base-url 不含 /v1（starter 自动拼 /v1/chat/completions、/v1/embeddings）
+    # api-key 占位非空：starter 的 audio/moderation 等装配不受 spring.ai.model 选择器控制，
+    # 空值会启动失败；真实凭据由 ENTERPRISE_AI_OPENAI_API_KEY 注入，占位串不会被成功调用。
+    base-url: ${ENTERPRISE_AI_OPENAI_BASE_URL:https://api.openai.com}
+    api-key: ${ENTERPRISE_AI_OPENAI_API_KEY:unused-placeholder}
+    chat.options:
+      model: ${ENTERPRISE_AI_OPENAI_CHAT_MODEL:gpt-4o-mini}
+    embedding.options:
+      model: ${ENTERPRISE_AI_OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
 
 # RAG 必须显式开启；Qdrant 只接受内网地址，生产凭据走环境变量。
 enterprise.ai.rag:
