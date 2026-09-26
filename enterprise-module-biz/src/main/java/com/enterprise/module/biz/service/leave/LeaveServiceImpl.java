@@ -37,6 +37,8 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Resource
     private BpmProcessInstanceApi processInstanceApi;
+    @Resource
+    private com.enterprise.module.biz.service.notify.BizApprovalNotifyService approvalNotifyService;
 
     /** 请假流程定义 KEY（BPM 模型部署后生效） */
     public static final String PROCESS_KEY = "biz_leave";
@@ -63,6 +65,9 @@ public class LeaveServiceImpl implements LeaveService {
             log.warn("[createLeave][BPM 流程未部署或发起失败，降级为本地直批] leaveId({}) 原因: {}",
                     leave.getId(), e.getMessage());
         }
+        // 站内信联动：提交通知审批人
+        approvalNotifyService.notifyPending("请假", Long.valueOf(leave.getCreator()),
+                leave.getEmpName(), leave.getLeaveType() + " " + leave.getDays() + " 天（" + leave.getReason() + "）");
         return leave.getId();
     }
 
@@ -84,6 +89,9 @@ public class LeaveServiceImpl implements LeaveService {
         if (leaveMapper.updateStatusCas(id, target, null) == 0) return;
         if ("1".equals(target)) leaveQuotaService.deductUsedDays(leave.getEmployeeId(),leave.getLeaveType(),
                 yearOf(leave.getStartDate()),leave.getDays());
+        // 站内信联动：BPM 路径的审批结果同样通知申请人
+        approvalNotifyService.notifyResult("请假", Long.valueOf(leave.getCreator()),
+                "1".equals(target), "1".equals(target) ? "审批通过" : "审批驳回");
     }
 
     @Override
@@ -103,6 +111,9 @@ public class LeaveServiceImpl implements LeaveService {
             leaveQuotaService.deductUsedDays(leave.getEmployeeId(), leave.getLeaveType(),
                     yearOf(leave.getStartDate()), leave.getDays());
         }
+        // 站内信联动：审批结果通知申请人
+        approvalNotifyService.notifyResult("请假", Long.valueOf(leave.getCreator()),
+                "1".equals(status), auditRemark);
     }
 
     @Override

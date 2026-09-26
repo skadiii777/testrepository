@@ -41,6 +41,9 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Resource
     private com.enterprise.module.biz.service.fms.FmsVoucherService fmsVoucherService;
 
+    @Resource
+    private com.enterprise.module.biz.service.notify.BizApprovalNotifyService approvalNotifyService;
+
     @Override
     public void updateExpense(ExpenseSaveReqVO updateReqVO) {
         validateExpenseExists(updateReqVO.getId());
@@ -68,18 +71,30 @@ public class ExpenseServiceImpl implements ExpenseService {
                 log.warn("[insertExpense][BPM 流程未部署或发起失败，降级为本地审批] expenseId({}) 原因: {}",
                         expense.getId(), e.getMessage());
             }
+            // 站内信联动：提交通知审批人
+            approvalNotifyService.notifyPending("报销", Long.valueOf(expense.getCreator()),
+                    expense.getEmpName(), expense.getCategory() + " ￥" + expense.getAmount() + "（" + expense.getReason() + "）");
         }
         return expense.getId();
     }
 
     @Override
     public void updateExpenseStatusFromBpm(Long id, Integer status) {
-        // BPM 状态映射：2=通过 -> 表 1；3=驳回 -> 表 2
+        // BPM 状态映射（仅终态）：2=通过 -> 表 1；3=驳回 -> 表 2；其余跳过（对齐补卡修复，弃用 status-1 越界写法）
+        String target = Integer.valueOf(2).equals(status) ? "1"
+                : Integer.valueOf(3).equals(status) ? "2" : null;
+        if (target == null) return;
         ExpenseDO update = ExpenseDO.builder()
                 .id(id)
-                .status(status == null ? null : String.valueOf(status - 1))
+                .status(target)
                 .build();
-        expenseMapper.auditExpense(update);
+        if (expenseMapper.auditExpense(update) == 0) return;
+        // 站内信联动：BPM 路径的审批结果通知申请人
+        ExpenseDO expense = expenseMapper.selectById(id);
+        if (expense != null) {
+            approvalNotifyService.notifyResult("报销", Long.valueOf(expense.getCreator()),
+                    "1".equals(target), "1".equals(target) ? "审批通过" : "审批驳回");
+        }
     }
 
     @Override
@@ -104,6 +119,12 @@ public class ExpenseServiceImpl implements ExpenseService {
                 fmsVoucherService.createSimplePosted("expense", id,
                         java.time.LocalDate.now(), summary, "6602", "2211", expense.getAmount());
             }
+        }
+        // 站内信联动：审批结果通知申请人
+        ExpenseDO expense = expenseMapper.selectById(id);
+        if (expense != null) {
+            approvalNotifyService.notifyResult("报销", Long.valueOf(expense.getCreator()),
+                    "1".equals(status), auditRemark);
         }
     }
 

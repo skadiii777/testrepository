@@ -53,6 +53,9 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
     @Resource
     private BpmProcessInstanceApi processInstanceApi;
 
+    @Resource
+    private com.enterprise.module.biz.service.notify.BizApprovalNotifyService approvalNotifyService;
+
     /** 补卡流程定义 KEY（BPM 模型部署后生效） */
     public static final String PROCESS_KEY = "biz_correction";
 
@@ -73,6 +76,10 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
             log.warn("[createCorrection][BPM 流程未部署或发起失败，降级为本地审批] correctionId({}) 原因: {}",
                     correction.getId(), e.getMessage());
         }
+        // 站内信联动：提交通知审批人
+        approvalNotifyService.notifyPending("补卡", Long.valueOf(correction.getCreator()),
+                correction.getWorkDate() + " " + correction.getCorrectType() + "卡 " + correction.getCorrectTime(),
+                correction.getReason());
         return correction.getId();
     }
 
@@ -105,6 +112,13 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
             applyCorrection(correction);
             log.info("[updateCorrectionStatusFromBpm][补卡({}) 考勤回写完成 workDate={}]",
                     id, correction == null ? null : correction.getWorkDate());
+        }
+        // 站内信联动：BPM 路径的审批结果通知申请人
+        AttendanceCorrectionDO correction = correctionMapper.selectById(id);
+        if (correction != null) {
+            approvalNotifyService.notifyResult("补卡", Long.valueOf(correction.getCreator()),
+                    STATUS_APPROVED.equals(targetStatus),
+                    STATUS_APPROVED.equals(targetStatus) ? "审批通过" : "审批驳回");
         }
     }
 
@@ -166,6 +180,12 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
         // 审批通过：自动回写考勤记录
         if (STATUS_APPROVED.equals(status)) {
             applyCorrection(correctionMapper.selectById(id));
+        }
+        // 站内信联动：审批结果通知申请人
+        AttendanceCorrectionDO after = correctionMapper.selectById(id);
+        if (after != null) {
+            approvalNotifyService.notifyResult("补卡", Long.valueOf(after.getCreator()),
+                    STATUS_APPROVED.equals(status), auditRemark);
         }
         return rows;
     }
