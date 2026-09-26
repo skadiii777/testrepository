@@ -186,6 +186,16 @@ public class AttendanceCorrectionServiceImpl implements AttendanceCorrectionServ
         if (after != null) {
             approvalNotifyService.notifyResult("补卡", Long.valueOf(after.getCreator()),
                     STATUS_APPROVED.equals(status), auditRemark);
+            // 双轨一致：本地直批落地时终止对应 BPM 流程实例（若存在）
+            if (after.getProcessInstanceId() != null) {
+                try {
+                    processInstanceApi.cancelProcessInstanceByStartUser(
+                            Long.valueOf(after.getCreator()), after.getProcessInstanceId(),
+                            "本地直批：" + (STATUS_APPROVED.equals(status) ? "通过" : "驳回"));
+                } catch (Exception e) {
+                    log.warn("[auditCorrection][BPM 实例终止失败，不影响业务结果] correctionId({})", id, e);
+                }
+            }
         }
         return rows;
     }

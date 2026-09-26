@@ -125,6 +125,16 @@ public class ExpenseServiceImpl implements ExpenseService {
         if (expense != null) {
             approvalNotifyService.notifyResult("报销", Long.valueOf(expense.getCreator()),
                     "1".equals(status), auditRemark);
+            // 双轨一致：本地直批落地时终止对应 BPM 流程实例（若存在）
+            if (expense.getProcessInstanceId() != null) {
+                try {
+                    processInstanceApi.cancelProcessInstanceByStartUser(
+                            Long.valueOf(expense.getCreator()), expense.getProcessInstanceId(),
+                            "本地直批：" + ("1".equals(status) ? "通过" : "驳回"));
+                } catch (Exception e) {
+                    log.warn("[auditExpense][BPM 实例终止失败，不影响业务结果] expenseId({})", id, e);
+                }
+            }
         }
     }
 
