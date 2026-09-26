@@ -20,6 +20,7 @@
         <module>enterprise-module-bpm</module>
         <module>enterprise-module-im</module>
         <module>enterprise-module-ai</module>
+        <module>enterprise-module-race</module>
 <!--        <module>enterprise-module-member</module>-->
 <!--        <module>enterprise-module-bpm</module>-->
 <!--        <module>enterprise-module-report</module>-->

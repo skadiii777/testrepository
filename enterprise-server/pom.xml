@@ -122,6 +122,13 @@
             <version>${revision}</version>
         </dependency>
 
+        <!-- 竞赛模块：年报解析与同业对比（AI 管线在 race-api Python 服务） -->
+        <dependency>
+            <groupId>com.enterprise</groupId>
+            <artifactId>enterprise-module-race</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
         <!-- IoT 物联网相关模块。默认注释，保证编译速度 -->
 <!--        <dependency>-->
 <!--            <groupId>com.enterprise</groupId>-->
